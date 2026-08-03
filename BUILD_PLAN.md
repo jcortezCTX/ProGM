@@ -1,0 +1,149 @@
+# BUILD_PLAN.md — Ops Hub
+
+Work through these phases **in order**. Each phase has a definition of done.
+Do not start a phase until the previous one's checks actually pass.
+
+Mark progress by checking boxes in this file as you go, and commit the update
+so state survives between sessions.
+
+---
+
+## Phase 0 — Foundation
+
+- [ ] Confirm Postgres is running: `cd db && docker compose up -d`
+- [ ] Verify tables exist (`\dt` via psql) — expect users, tasks, inventory_items,
+      inventory_transactions, deliveries, drawings, drawing_revisions,
+      log_types, log_entries, attachments, and others
+- [ ] Set up npm workspaces at repo root for `api` and `web`
+- [ ] Root `.gitignore` (node_modules, .env, dist, build)
+- [ ] Initial commit
+
+**Done when**: `docker compose ps` shows postgres healthy and the schema is
+queryable.
+
+---
+
+## Phase 1 — Backend + Inventory API
+
+- [ ] Scaffold `api/`: TypeScript, Express, Prisma, Zod, tsx for dev
+- [ ] `.env.example` with `DATABASE_URL` (no real secrets committed)
+- [ ] `npx prisma db pull` to generate `schema.prisma` from the live database
+- [ ] Review generated schema — confirm the `inventory_current_stock` view and
+      enums came through sensibly; note anything Prisma handled awkwardly
+- [ ] Set up Prisma Migrate going forward (baseline the existing schema)
+- [ ] Health check endpoint `GET /api/health`
+- [ ] Inventory endpoints:
+  - `GET /api/inventory/items` (list, with current stock joined in)
+  - `POST /api/inventory/items` (create)
+  - `GET /api/inventory/items/:id`
+  - `POST /api/inventory/transactions` (record in/out movement)
+  - `GET /api/inventory/items/:id/transactions` (history)
+- [ ] Service-layer tests for stock math, including negative deltas and
+      multiple locations
+- [ ] Seed script: a dev user, ~10 inventory items, some transactions
+
+**Done when**: every endpoint above returns a correct real response via curl,
+`tsc --noEmit` is clean, and stock math tests pass.
+
+---
+
+## Phase 2 — Inventory UI (first vertical slice)
+
+- [ ] Scaffold `web/`: Vite + React + TypeScript
+- [ ] API client layer with typed responses
+- [ ] Inventory list view: items with current stock, low-stock indicator when
+      below `reorder_threshold`
+- [ ] Item detail view with transaction history
+- [ ] Forms: add item, record transaction (in/out/adjustment)
+- [ ] Basic layout shell with nav placeholders for future modules
+- [ ] Hardcoded dev user — **no auth yet**
+
+**Done when**: you can add an item, record movements, and see stock update
+correctly in the browser, end to end, against the real API.
+
+**Stop here and check in with me before Phase 3.** This slice proves the whole
+architecture; worth a human look before building on it.
+
+---
+
+## Phase 3 — Auth (Azure AD)
+
+Requires tenant details from me — ask before starting.
+
+- [ ] Azure AD app registration values via env vars
+- [ ] MSAL on the frontend, **redirect flow** (not popup/silent-iframe — those
+      break when the app is later embedded in SharePoint via iframe due to
+      third-party cookie restrictions)
+- [ ] Backend token validation middleware
+- [ ] Auto-provision `users` row on first sign-in from the `oid` claim
+- [ ] Replace hardcoded dev user everywhere
+- [ ] Role enforcement (admin / manager / member)
+
+**Done when**: a real Microsoft account signs in, gets a `users` row, and
+unauthenticated API requests are properly rejected.
+
+---
+
+## Phase 4 — Delivery Log
+
+Reuses inventory. A delivery going out should create `delivered_out`
+transactions, not a separate stock mechanism.
+
+- [ ] Delivery CRUD endpoints + line items
+- [ ] Status transitions (scheduled → in_transit → delivered/failed)
+- [ ] On delivery completion, write inventory transactions atomically in one
+      DB transaction — a partial write here corrupts stock
+- [ ] Delivery list + detail UI
+
+---
+
+## Phase 5 — Drawing Log
+
+- [ ] Drawing CRUD + revision endpoints (revisions append-only)
+- [ ] Revision history UI, clearly showing current vs superseded
+- [ ] Status workflow (draft → in_review → approved → superseded)
+
+---
+
+## Phase 6 — Tasks & Scheduling
+
+- [ ] Task CRUD, assignment, comments, status board UI
+- [ ] Optional links from tasks to deliveries/drawings
+- [ ] Schedule events + attendees, calendar view
+
+---
+
+## Phase 7 — Custom log engine
+
+The payoff module: admins define new log types without a deploy.
+
+- [ ] Log type CRUD, with `field_schema` builder UI
+- [ ] Dynamic form renderer driven by `field_schema`
+- [ ] Dynamic list/table view per log type
+- [ ] Server-side validation of entry `data` against its type's `field_schema`
+
+---
+
+## Phase 8 — SharePoint file attachments
+
+- [ ] Graph API client module (one place, reused by all entity types)
+- [ ] Upload to a SharePoint document library, store pointers in `attachments`
+- [ ] Attach/view files from inventory, deliveries, drawings, log entries
+- [ ] Handle token refresh and Graph API failures gracefully
+
+---
+
+## Phase 9 — Embed in SharePoint + deploy prep
+
+- [ ] Set `Content-Security-Policy: frame-ancestors <tenant>.sharepoint.com`
+- [ ] Verify auth redirect flow works while iframed (test in Safari, which is
+      strictest on third-party cookies)
+- [ ] `postMessage` iframe height resizing
+- [ ] Production build config, env var documentation, deploy runbook
+
+---
+
+## Working notes
+
+Append anything future-you needs to know here — decisions made, gotchas found,
+things deferred. Keep it short and factual.
