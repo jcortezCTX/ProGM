@@ -10,13 +10,13 @@ so state survives between sessions.
 
 ## Phase 0 — Foundation
 
-- [ ] Confirm Postgres is running: `cd db && docker compose up -d`
-- [ ] Verify tables exist (`\dt` via psql) — expect users, tasks, inventory_items,
+- [x] Confirm Postgres is running: `cd db && docker compose up -d`
+- [x] Verify tables exist (`\dt` via psql) — expect users, tasks, inventory_items,
       inventory_transactions, deliveries, drawings, drawing_revisions,
       log_types, log_entries, attachments, and others
-- [ ] Set up npm workspaces at repo root for `api` and `web`
-- [ ] Root `.gitignore` (node_modules, .env, dist, build)
-- [ ] Initial commit
+- [x] Set up npm workspaces at repo root for `api` and `web`
+- [x] Root `.gitignore` (node_modules, .env, dist, build)
+- [x] Initial commit
 
 **Done when**: `docker compose ps` shows postgres healthy and the schema is
 queryable.
@@ -147,3 +147,12 @@ The payoff module: admins define new log types without a deploy.
 
 Append anything future-you needs to know here — decisions made, gotchas found,
 things deferred. Keep it short and factual.
+
+- 2026-08-03: `CLAUDE.md`/`BUILD_PLAN.md`/`KICKOFF.md` originally landed under
+  `cl/` instead of repo root; moved to root so `CLAUDE.md` auto-loads.
+- 2026-08-03: `db/schema.sql` didn't exist yet, so it was designed from
+  scratch against the data-model rules in `CLAUDE.md` (not pulled from an
+  existing source) — reviewed and approved before Postgres was started.
+- 2026-08-03: inventory stock is tracked per (item, location) — the
+  `inventory_current_stock` view groups by both — since Phase 1 calls for
+  multi-location stock math tests.
