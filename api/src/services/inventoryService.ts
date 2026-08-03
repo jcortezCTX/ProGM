@@ -6,6 +6,7 @@ type DecimalInput = string | number | Prisma.Decimal;
 
 export class NotFoundError extends Error {}
 export class ValidationError extends Error {}
+export class ConflictError extends Error {}
 
 // received/issued/delivered_out take a positive magnitude and this derives the
 // signed delta stored in inventory_transactions.quantity; adjustment passes
@@ -61,15 +62,22 @@ export async function createItem(input: {
   unit?: string;
   reorder_threshold?: DecimalInput;
 }) {
-  return prisma.inventory_items.create({
-    data: {
-      sku: input.sku,
-      name: input.name,
-      description: input.description ?? null,
-      unit: input.unit ?? "each",
-      reorder_threshold: input.reorder_threshold ?? 0,
-    },
-  });
+  try {
+    return await prisma.inventory_items.create({
+      data: {
+        sku: input.sku,
+        name: input.name,
+        description: input.description ?? null,
+        unit: input.unit ?? "each",
+        reorder_threshold: input.reorder_threshold ?? 0,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      throw new ConflictError(`Inventory item with sku ${input.sku} already exists`);
+    }
+    throw err;
+  }
 }
 
 export async function getItem(itemId: string) {

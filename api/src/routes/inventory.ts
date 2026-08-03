@@ -5,6 +5,7 @@ import {
   idParamSchema,
 } from "../validation/inventory.js";
 import {
+  ConflictError,
   NotFoundError,
   ValidationError,
   createItem,
@@ -23,6 +24,10 @@ function handleError(res: import("express").Response, err: unknown) {
   }
   if (err instanceof ValidationError) {
     res.status(400).json({ error: err.message });
+    return;
+  }
+  if (err instanceof ConflictError) {
+    res.status(409).json({ error: err.message });
     return;
   }
   console.error(err);
