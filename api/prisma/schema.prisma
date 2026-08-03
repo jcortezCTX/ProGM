@@ -93,7 +93,7 @@ model inventory_items {
   product_link           String?
   custom_fields          Json                     @default("{}")
   created_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
   delivery_line_items    delivery_line_items[]
   inventory_transactions inventory_transactions[]
   inventory_item_tags    inventory_item_tags[]
