@@ -49,14 +49,14 @@ queryable.
 
 ## Phase 2 — Inventory UI (first vertical slice)
 
-- [ ] Scaffold `web/`: Vite + React + TypeScript
-- [ ] API client layer with typed responses
-- [ ] Inventory list view: items with current stock, low-stock indicator when
+- [x] Scaffold `web/`: Vite + React + TypeScript
+- [x] API client layer with typed responses
+- [x] Inventory list view: items with current stock, low-stock indicator when
       below `reorder_threshold`
-- [ ] Item detail view with transaction history
-- [ ] Forms: add item, record transaction (in/out/adjustment)
-- [ ] Basic layout shell with nav placeholders for future modules
-- [ ] Hardcoded dev user — **no auth yet**
+- [x] Item detail view with transaction history
+- [x] Forms: add item, record transaction (in/out/adjustment)
+- [x] Basic layout shell with nav placeholders for future modules
+- [x] Hardcoded dev user — **no auth yet**
 
 **Done when**: you can add an item, record movements, and see stock update
 correctly in the browser, end to end, against the real API.
@@ -166,3 +166,17 @@ things deferred. Keep it short and factual.
   `adjustment` takes a signed delta directly since it corrects drift either
   direction. Keep this contract in mind when building the Delivery Log
   (Phase 4), which posts `delivered_out` transactions.
+- 2026-08-03: added `cors` to the API (permissive, no origin restriction) so
+  the Vite dev server can call it cross-origin. Revisit this — tighten to an
+  explicit allowlist — once there's a real deployed frontend origin, and
+  definitely before Phase 9 (SharePoint embed + deploy prep).
+- 2026-08-03: UI visual language (navy header, horizontal tabs, sky-blue
+  accent, white cards, stat tiles) is styled to match the company's existing
+  GarneyOne intranet, per a reference screenshot at `img/garneyOne.png`. Keep
+  new modules visually consistent with this rather than introducing a new
+  style per page.
+- 2026-08-03: layout shell uses a horizontal tab bar under the header, not a
+  sidebar — matches the GarneyOne reference. Future module nav items
+  (Deliveries, Drawings, Tasks, Scheduling, Custom Logs) are non-interactive
+  placeholders in `web/src/components/Layout.tsx` until those phases build
+  real pages.
