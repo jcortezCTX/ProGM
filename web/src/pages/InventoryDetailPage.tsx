@@ -238,6 +238,7 @@ export function InventoryDetailPage() {
               step="any"
               value={form.reorder_threshold}
               onChange={(e) => updateForm({ reorder_threshold: e.target.value })}
+              aria-label="Minimum level"
             />
           </div>
 
@@ -252,6 +253,7 @@ export function InventoryDetailPage() {
                 step="any"
                 value={form.price}
                 onChange={(e) => updateForm({ price: e.target.value })}
+                aria-label="Price"
               />
             </div>
           </div>
