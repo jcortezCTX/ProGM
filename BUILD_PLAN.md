@@ -196,3 +196,27 @@ things deferred. Keep it short and factual.
   intentional, e.g. to allow backordering and reconcile later via
   `adjustment`), but worth a product decision before Phase 4 (Delivery Log)
   starts writing `delivered_out` transactions automatically.
+- 2026-08-04: extended `inventory_items` for the fields shown in
+  `img/item.png` (a Sortly-style item detail page): `price`, `notes`,
+  `barcode` (unique), `product_link`, and a `custom_fields` JSONB column,
+  plus new tables `inventory_custom_field_defs` (admin-configured field
+  template shared across all items, mirroring the `log_types.field_schema`
+  pattern rather than one column per field) and
+  `inventory_tags`/`inventory_item_tags` (many-to-many). `total_value` is
+  computed server-side (`quantity_on_hand * price`), never stored — same
+  "derived, not stored" rule as stock itself.
+- 2026-08-04: deliberately did NOT build the screenshot's "Requisitions
+  List" folder/grouping concept or its "Orders" (linked purchase orders,
+  open/closed status) submodule — those read as separate features beyond
+  "fields on an item." Added a plain `product_link` text field instead of
+  the Orders card. Revisit if a real Purchasing module gets scoped later.
+- 2026-08-04: `prisma migrate dev` doesn't work in this non-interactive
+  environment (it insists on an interactive shadow-DB prompt). Migrations
+  from here on are generated via `prisma migrate diff --script`, applied by
+  hand with `psql`, then recorded with `prisma migrate resolve --applied` —
+  same approach as the Phase 1 baseline. Always verify zero drift afterward
+  with another `migrate diff` against the live DB.
+- 2026-08-04: spun up a background agent to rework
+  `web/src/pages/InventoryDetailPage.tsx` to match `img/item.png`'s layout
+  (stat cards, Product Information, Custom Fields, etc.) while keeping the
+  GarneyOne-styled app shell and the existing transaction ledger UI intact.
