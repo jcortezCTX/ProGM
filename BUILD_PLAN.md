@@ -25,22 +25,22 @@ queryable.
 
 ## Phase 1 — Backend + Inventory API
 
-- [ ] Scaffold `api/`: TypeScript, Express, Prisma, Zod, tsx for dev
-- [ ] `.env.example` with `DATABASE_URL` (no real secrets committed)
-- [ ] `npx prisma db pull` to generate `schema.prisma` from the live database
-- [ ] Review generated schema — confirm the `inventory_current_stock` view and
+- [x] Scaffold `api/`: TypeScript, Express, Prisma, Zod, tsx for dev
+- [x] `.env.example` with `DATABASE_URL` (no real secrets committed)
+- [x] `npx prisma db pull` to generate `schema.prisma` from the live database
+- [x] Review generated schema — confirm the `inventory_current_stock` view and
       enums came through sensibly; note anything Prisma handled awkwardly
-- [ ] Set up Prisma Migrate going forward (baseline the existing schema)
-- [ ] Health check endpoint `GET /api/health`
-- [ ] Inventory endpoints:
+- [x] Set up Prisma Migrate going forward (baseline the existing schema)
+- [x] Health check endpoint `GET /api/health`
+- [x] Inventory endpoints:
   - `GET /api/inventory/items` (list, with current stock joined in)
   - `POST /api/inventory/items` (create)
   - `GET /api/inventory/items/:id`
   - `POST /api/inventory/transactions` (record in/out movement)
   - `GET /api/inventory/items/:id/transactions` (history)
-- [ ] Service-layer tests for stock math, including negative deltas and
+- [x] Service-layer tests for stock math, including negative deltas and
       multiple locations
-- [ ] Seed script: a dev user, ~10 inventory items, some transactions
+- [x] Seed script: a dev user, ~10 inventory items, some transactions
 
 **Done when**: every endpoint above returns a correct real response via curl,
 `tsc --noEmit` is clean, and stock math tests pass.
@@ -156,3 +156,13 @@ things deferred. Keep it short and factual.
 - 2026-08-03: inventory stock is tracked per (item, location) — the
   `inventory_current_stock` view groups by both — since Phase 1 calls for
   multi-location stock math tests.
+- 2026-08-03: Prisma's `views` preview feature introspects the view fine, but
+  neither the view nor the `schedule_events` check constraint are managed by
+  `prisma migrate` — both were appended by hand to the `0_init` baseline
+  migration so the migration history actually matches the live DB. Any future
+  change to the view definition needs the same manual treatment.
+- 2026-08-03: `POST /api/inventory/transactions` takes a positive `quantity`
+  magnitude for `received`/`issued`/`delivered_out` (service derives the sign);
+  `adjustment` takes a signed delta directly since it corrects drift either
+  direction. Keep this contract in mind when building the Delivery Log
+  (Phase 4), which posts `delivered_out` transactions.
