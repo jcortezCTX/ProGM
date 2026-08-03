@@ -1,0 +1,261 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model attachments {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type    String
+  entity_id      String   @db.Uuid
+  file_name      String
+  graph_drive_id String?
+  graph_item_id  String?
+  uploaded_by    String?  @db.Uuid
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          users?   @relation(fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([entity_type, entity_id], map: "idx_attachments_entity")
+}
+
+model deliveries {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference_number    String                @unique
+  status              delivery_status       @default(scheduled)
+  destination         String?
+  scheduled_at        DateTime?             @db.Timestamptz(6)
+  delivered_at        DateTime?             @db.Timestamptz(6)
+  created_by          String?               @db.Uuid
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  users               users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_line_items delivery_line_items[]
+  tasks               tasks[]
+}
+
+model delivery_line_items {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  delivery_id       String          @db.Uuid
+  inventory_item_id String          @db.Uuid
+  quantity          Decimal         @db.Decimal
+  note              String?
+  deliveries        deliveries      @relation(fields: [delivery_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_items   inventory_items @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([delivery_id], map: "idx_delivery_line_items_delivery")
+}
+
+model drawing_revisions {
+  id                                                       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  drawing_id                                               String     @db.Uuid
+  revision_code                                            String
+  notes                                                    String?
+  created_by                                               String?    @db.Uuid
+  created_at                                               DateTime   @default(now()) @db.Timestamptz(6)
+  users                                                    users?     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drawings_drawing_revisions_drawing_idTodrawings          drawings   @relation("drawing_revisions_drawing_idTodrawings", fields: [drawing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drawings_drawings_current_revision_idTodrawing_revisions drawings[] @relation("drawings_current_revision_idTodrawing_revisions")
+
+  @@unique([drawing_id, revision_code])
+  @@index([drawing_id], map: "idx_drawing_revisions_drawing")
+}
+
+model drawings {
+  id                                                                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  drawing_number                                                    String              @unique
+  title                                                             String
+  status                                                            drawing_status      @default(draft)
+  current_revision_id                                               String?             @db.Uuid
+  created_by                                                        String?             @db.Uuid
+  created_at                                                        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                                                        DateTime            @default(now()) @db.Timestamptz(6)
+  drawing_revisions_drawing_revisions_drawing_idTodrawings          drawing_revisions[] @relation("drawing_revisions_drawing_idTodrawings")
+  users                                                             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drawing_revisions_drawings_current_revision_idTodrawing_revisions drawing_revisions?  @relation("drawings_current_revision_idTodrawing_revisions", fields: [current_revision_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drawings_current_revision")
+  tasks                                                             tasks[]
+}
+
+model inventory_items {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sku                    String                   @unique
+  name                   String
+  description            String?
+  unit                   String                   @default("each")
+  reorder_threshold      Decimal                  @default(0) @db.Decimal
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  delivery_line_items    delivery_line_items[]
+  inventory_transactions inventory_transactions[]
+}
+
+model inventory_transactions {
+  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_id         String                     @db.Uuid
+  type            inventory_transaction_type
+  quantity        Decimal                    @db.Decimal
+  location        String                     @default("main")
+  note            String?
+  created_by      String?                    @db.Uuid
+  created_at      DateTime                   @default(now()) @db.Timestamptz(6)
+  users           users?                     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_items inventory_items            @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([item_id], map: "idx_inventory_transactions_item")
+  @@index([item_id, location], map: "idx_inventory_transactions_item_location")
+}
+
+model log_entries {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  log_type_id String    @db.Uuid
+  data        Json
+  created_by  String?   @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  log_types   log_types @relation(fields: [log_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([log_type_id], map: "idx_log_entries_log_type")
+}
+
+model log_types {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String        @unique
+  slug         String        @unique
+  field_schema Json
+  created_by   String?       @db.Uuid
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime      @default(now()) @db.Timestamptz(6)
+  log_entries  log_entries[]
+  users        users?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model schedule_event_attendees {
+  event_id        String            @db.Uuid
+  user_id         String            @db.Uuid
+  response        attendee_response @default(pending)
+  schedule_events schedule_events   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users             @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([event_id, user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model schedule_events {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                    String
+  description              String?
+  location                 String?
+  starts_at                DateTime                   @db.Timestamptz(6)
+  ends_at                  DateTime                   @db.Timestamptz(6)
+  created_by               String?                    @db.Uuid
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  schedule_event_attendees schedule_event_attendees[]
+  users                    users?                     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model task_comments {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id    String   @db.Uuid
+  author_id  String?  @db.Uuid
+  body       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users?   @relation(fields: [author_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks      tasks    @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([task_id], map: "idx_task_comments_task")
+}
+
+model tasks {
+  id                             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                          String
+  description                    String?
+  status                         task_status     @default(open)
+  assignee_id                    String?         @db.Uuid
+  due_date                       DateTime?       @db.Timestamptz(6)
+  delivery_id                    String?         @db.Uuid
+  drawing_id                     String?         @db.Uuid
+  created_by                     String?         @db.Uuid
+  created_at                     DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime        @default(now()) @db.Timestamptz(6)
+  task_comments                  task_comments[]
+  users_tasks_assignee_idTousers users?          @relation("tasks_assignee_idTousers", fields: [assignee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_tasks_created_byTousers  users?          @relation("tasks_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  deliveries                     deliveries?     @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  drawings                       drawings?       @relation(fields: [drawing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([assignee_id], map: "idx_tasks_assignee")
+}
+
+model users {
+  id                             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  azure_ad_oid                   String?                    @unique
+  email                          String                     @unique
+  display_name                   String
+  role                           user_role                  @default(member)
+  created_at                     DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                   @default(now()) @db.Timestamptz(6)
+  attachments                    attachments[]
+  deliveries                     deliveries[]
+  drawing_revisions              drawing_revisions[]
+  drawings                       drawings[]
+  inventory_transactions         inventory_transactions[]
+  log_entries                    log_entries[]
+  log_types                      log_types[]
+  schedule_event_attendees       schedule_event_attendees[]
+  schedule_events                schedule_events[]
+  task_comments                  task_comments[]
+  tasks_tasks_assignee_idTousers tasks[]                    @relation("tasks_assignee_idTousers")
+  tasks_tasks_created_byTousers  tasks[]                    @relation("tasks_created_byTousers")
+}
+
+view inventory_current_stock {
+  item_id          String?  @db.Uuid
+  location         String?
+  quantity_on_hand Decimal? @db.Decimal
+}
+
+enum attendee_response {
+  pending
+  accepted
+  declined
+}
+
+enum delivery_status {
+  scheduled
+  in_transit
+  delivered
+  failed
+}
+
+enum drawing_status {
+  draft
+  in_review
+  approved
+  superseded
+}
+
+enum inventory_transaction_type {
+  received
+  issued
+  adjustment
+  delivered_out
+}
+
+enum task_status {
+  open
+  in_progress
+  blocked
+  done
+}
+
+enum user_role {
+  admin
+  manager
+  member
+}
