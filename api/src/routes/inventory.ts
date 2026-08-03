@@ -1,18 +1,24 @@
 import { Router } from "express";
 import {
+  createCustomFieldDefSchema,
   createItemSchema,
   createTransactionSchema,
   idParamSchema,
+  updateItemSchema,
 } from "../validation/inventory.js";
 import {
   ConflictError,
   NotFoundError,
   ValidationError,
+  createCustomFieldDef,
   createItem,
   getItem,
   getTransactionHistory,
+  listCustomFieldDefs,
   listItems,
+  listTags,
   recordTransaction,
+  updateItem,
 } from "../services/inventoryService.js";
 
 export const inventoryRouter = Router();
@@ -66,6 +72,55 @@ inventoryRouter.get("/items/:id", async (req, res) => {
   try {
     const item = await getItem(parsed.data.id);
     res.json(item);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+inventoryRouter.patch("/items/:id", async (req, res) => {
+  const parsedId = idParamSchema.safeParse(req.params);
+  if (!parsedId.success) {
+    res.status(400).json({ error: parsedId.error.message });
+    return;
+  }
+  const parsedBody = updateItemSchema.safeParse(req.body);
+  if (!parsedBody.success) {
+    res.status(400).json({ error: parsedBody.error.message });
+    return;
+  }
+  try {
+    const item = await updateItem(parsedId.data.id, parsedBody.data);
+    res.json(item);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+inventoryRouter.get("/tags", async (_req, res) => {
+  try {
+    res.json(await listTags());
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+inventoryRouter.get("/custom-field-defs", async (_req, res) => {
+  try {
+    res.json(await listCustomFieldDefs());
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+inventoryRouter.post("/custom-field-defs", async (req, res) => {
+  const parsed = createCustomFieldDefSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  try {
+    const def = await createCustomFieldDef(parsed.data);
+    res.status(201).json(def);
   } catch (err) {
     handleError(res, err);
   }

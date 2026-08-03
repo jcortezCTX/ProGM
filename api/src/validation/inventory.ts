@@ -1,14 +1,46 @@
 import { z } from "zod";
 
+const decimalString = z.union([z.number(), z.string()]).transform((v) => String(v));
+const customFields = z.record(z.string(), z.unknown());
+const tags = z.array(z.string().min(1));
+
 export const createItemSchema = z.object({
   sku: z.string().min(1),
   name: z.string().min(1),
   description: z.string().min(1).optional(),
   unit: z.string().min(1).optional(),
-  reorder_threshold: z.union([z.number(), z.string()]).optional(),
+  reorder_threshold: decimalString.optional(),
+  price: decimalString.optional(),
+  notes: z.string().min(1).optional(),
+  barcode: z.string().min(1).optional(),
+  product_link: z.string().min(1).optional(),
+  custom_fields: customFields.optional(),
+  tags: tags.optional(),
 });
 
-const decimalString = z.union([z.number(), z.string()]).transform((v) => String(v));
+export const updateItemSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).nullable().optional(),
+  unit: z.string().min(1).optional(),
+  reorder_threshold: decimalString.optional(),
+  price: decimalString.optional(),
+  notes: z.string().min(1).nullable().optional(),
+  barcode: z.string().min(1).nullable().optional(),
+  product_link: z.string().min(1).nullable().optional(),
+  custom_fields: customFields.optional(),
+  tags: tags.optional(),
+});
+
+export const createCustomFieldDefSchema = z.object({
+  field_key: z
+    .string()
+    .min(1)
+    .regex(/^[a-z][a-z0-9_]*$/, "field_key must be lowercase snake_case"),
+  label: z.string().min(1),
+  field_type: z.enum(["text", "textarea", "number", "select", "checkbox"]),
+  options: z.array(z.string().min(1)).optional(),
+  sort_order: z.number().int().optional(),
+});
 
 export const createTransactionSchema = z
   .object({
