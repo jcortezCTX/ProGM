@@ -180,3 +180,19 @@ things deferred. Keep it short and factual.
   (Deliveries, Drawings, Tasks, Scheduling, Custom Logs) are non-interactive
   placeholders in `web/src/components/Layout.tsx` until those phases build
   real pages.
+- 2026-08-03: Phase 3 (Azure AD auth) is deliberately parked — explicit call
+  to finish testing the Phase 0-2 slice end-to-end first rather than starting
+  auth. Do not start Phase 3 until asked.
+- 2026-08-03: end-to-end test pass over Phases 0-2 (db, api, web). Found and
+  fixed two error-handling gaps: duplicate SKU on item creation was a bare
+  500 (now 409), and a malformed JSON request body hit Express's default HTML
+  error page with a stack trace instead of the API's `{ error: string }`
+  contract (now a clean 400). Everything else — validation errors, 404s,
+  multi-location stock, decimal quantities, `delivered_out` sign handling —
+  checked out.
+- 2026-08-03: **open question, not yet decided**: `inventory_transactions`
+  has no guard against issuing more than what's on hand — confirmed the API
+  will happily drive an item's stock negative. Not obviously wrong (could be
+  intentional, e.g. to allow backordering and reconcile later via
+  `adjustment`), but worth a product decision before Phase 4 (Delivery Log)
+  starts writing `delivered_out` transactions automatically.
