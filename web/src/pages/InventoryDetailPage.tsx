@@ -9,6 +9,7 @@ import {
   recordTransaction,
   updateItem,
 } from "../api/inventory";
+import { PhotoUpload } from "../components/PhotoUpload";
 import type {
   InventoryCustomFieldDef,
   InventoryItemDetail,
@@ -271,10 +272,7 @@ export function InventoryDetailPage() {
           <div className="detail-col">
             <div className="card detail-card">
               <h2>Product Information</h2>
-              <div className="detail-photo-placeholder">
-                <p>Photo upload</p>
-                <p className="muted">Max 8 photos, 30 MB total (JPG, PNG, HEIC) &mdash; coming soon</p>
-              </div>
+              <PhotoUpload entityType="inventory_item" entityId={id} />
 
               <div className="detail-field">
                 <span className="detail-field-heading">Tags</span>
