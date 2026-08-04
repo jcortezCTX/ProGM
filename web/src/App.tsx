@@ -6,6 +6,8 @@ import { DeliveriesListPage } from "./pages/DeliveriesListPage";
 import { DeliveryDetailPage } from "./pages/DeliveryDetailPage";
 import { RequisitionsListPage } from "./pages/RequisitionsListPage";
 import { RequisitionDetailPage } from "./pages/RequisitionDetailPage";
+import { MechanicalLogListPage } from "./pages/MechanicalLogListPage";
+import { MechanicalLogDetailPage } from "./pages/MechanicalLogDetailPage";
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
         <Route path="/deliveries/:id" element={<DeliveryDetailPage />} />
         <Route path="/requisitions" element={<RequisitionsListPage />} />
         <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
+        <Route path="/mechanical-log" element={<MechanicalLogListPage />} />
+        <Route path="/mechanical-log/:id" element={<MechanicalLogDetailPage />} />
       </Route>
     </Routes>
   );

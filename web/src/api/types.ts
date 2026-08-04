@@ -266,3 +266,53 @@ export interface AddDeliveryLineItemInput {
   note?: string;
   location?: string;
 }
+
+// One row per released tag/spool from the real "Mechanical Log" Excel export
+// (logs_samples/Mechanical Log.csv) - a dedicated log, not linked to
+// inventory_items or delivery_line_items. All fields are nullable: the
+// source data itself is sparse (many rows have no tag number at all).
+export interface MechanicalLogItem {
+  id: string;
+  release: string | null;
+  supplier: string | null;
+  review: string | null;
+  tag_number: string | null;
+  qty_released: string | null;
+  unit: string | null;
+  size: string | null;
+  description: string | null;
+  material: string | null;
+  lining: string | null;
+  coating: string | null;
+  release_date: string | null;
+  due_date: string | null;
+  area: string | null;
+  system: string | null;
+  contract_dwg: string | null;
+  system2: string | null;
+  shop_dwg: string | null;
+  delivered_qty: string | null;
+  need_qty: string | null;
+  received_on: string | null;
+  received_by: string | null;
+  storage_location: string | null;
+  notes: string | null;
+  estimate_cost: string | null;
+  contract_unit_price: string | null;
+  contract_extended_price: string | null;
+  above_below: string | null;
+  invoice_no: string | null;
+  invoice_unit_price: string | null;
+  invoice_extended_price: string | null;
+  delta_invoice_contract: string | null;
+  qty_invoiced_to_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Same shape for create and update (PATCH semantics: omit to leave
+// unchanged, null to clear).
+export type MechanicalLogItemInput = Partial<
+  Omit<MechanicalLogItem, "id" | "created_by" | "created_at" | "updated_at">
+>;

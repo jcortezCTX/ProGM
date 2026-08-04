@@ -263,3 +263,32 @@ things deferred. Keep it short and factual.
 - 2026-08-04: two dropped-in CSVs at `logs_samples/` (Mechanical Log,
   Drawing Release Log) — reference material for a future custom-log-engine
   or drawing-log phase, not yet acted on.
+- 2026-08-04: built the Mechanical Log module (not a formally numbered phase
+  above — direct user request). `mechanical_log_items` is a dedicated typed
+  table (33 columns, one per CSV column) rather than routed through
+  `inventory_items` or the not-yet-built custom-log engine (Phase 7) —
+  release/PO/pricing/delivery-tracking fields go well beyond either. Every
+  field is nullable: the real export itself is sparse (129 of 565 rows have
+  no tag number at all). Deliberately NOT wired into
+  `inventory_transactions` — unlike the Delivery Log, this tracks contract
+  release/receiving/invoicing, not warehouse stock; revisit if that turns
+  out to be wrong. Imported the real CSV (`api/prisma/importMechanicalLog.ts`,
+  552 rows after dropping 13 fully-blank ones) as the initial dataset rather
+  than inventing demo data, since the file is the actual company log.
+  Backend curl-verified (CRUD + 404/400 paths); CSV parsing (money incl.
+  `$(1,789.06)`-style negatives, M/D/YY and M/D/YYYY dates, Windows-1252
+  encoding for curly quotes) spot-checked against the DB. New-entry UI
+  reuses the Sortly-style item-detail-page template
+  (`InventoryDetailPage.tsx`) directly — same page handles create (`/new`)
+  and edit — per explicit request that entry should "look like the item
+  detail page."
+- 2026-08-04: added customizable table columns (`useTableColumns` hook +
+  `ColumnPicker` component, `web/src/hooks/` and `web/src/components/`) to
+  Inventory, Deliveries, Requisitions, and the new Mechanical Log list
+  pages — visible columns persist per-table in localStorage. Also removed
+  `.app-main`'s `max-width: 1100px` so list-page tables use the full
+  viewport width, per direct request. Verified with a real headless-browser
+  pass (Playwright, installed locally for this session only — not added to
+  package.json) against a running dev server: screenshotted all four list
+  pages, the columns picker open/toggling, and a full create round-trip on
+  the Mechanical Log ending on the persisted entry; zero console errors.

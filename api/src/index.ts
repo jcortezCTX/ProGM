@@ -4,6 +4,7 @@ import express, { type ErrorRequestHandler } from "express";
 import { deliveriesRouter } from "./routes/deliveries.js";
 import { healthRouter } from "./routes/health.js";
 import { inventoryRouter } from "./routes/inventory.js";
+import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
 
 const app = express();
@@ -14,6 +15,7 @@ app.use("/api", healthRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/deliveries", deliveriesRouter);
 app.use("/api/requisitions", requisitionsRouter);
+app.use("/api/mechanical-log", mechanicalLogRouter);
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's

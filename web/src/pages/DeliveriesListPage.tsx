@@ -3,7 +3,34 @@ import { Link } from "react-router-dom";
 import { createDelivery, listDeliveries } from "../api/deliveries";
 import { listRequisitions } from "../api/requisitions";
 import { ApiError } from "../api/client";
+import { ColumnPicker } from "../components/ColumnPicker";
+import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { CreateDeliveryInput, Delivery, Requisition } from "../api/types";
+
+const COLUMNS: ColumnDef<Delivery>[] = [
+  {
+    key: "report_number",
+    label: "Report #",
+    render: (d) => <Link to={`/deliveries/${d.id}`}>#{d.report_number}</Link>,
+  },
+  { key: "received_date", label: "Date", render: (d) => new Date(d.received_date).toLocaleDateString() },
+  { key: "supplier", label: "Supplier", render: (d) => d.supplier ?? "—" },
+  {
+    key: "requisition",
+    label: "Requisition",
+    render: (d) =>
+      d.requisition_id ? <Link to={`/requisitions/${d.requisition_id}`}>{d.requisition_number}</Link> : "—",
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (d) => <span className={`badge-neutral badge-status-${d.status}`}>{d.status}</span>,
+  },
+  { key: "line_item_count", label: "Line items", render: (d) => d.line_item_count },
+  { key: "bill_of_lading_no", label: "Bill of lading #", render: (d) => d.bill_of_lading_no ?? "—", defaultVisible: false },
+  { key: "truck_number", label: "Truck #", render: (d) => d.truck_number ?? "—", defaultVisible: false },
+  { key: "accepted_by", label: "Accepted by", render: (d) => d.accepted_by ?? "—", defaultVisible: false },
+];
 
 export function DeliveriesListPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -11,6 +38,7 @@ export function DeliveriesListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("deliveries", COLUMNS);
 
   async function refresh() {
     setLoading(true);
@@ -58,45 +86,36 @@ export function DeliveriesListPage() {
       {loading ? (
         <p>Loading…</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Report #</th>
-              <th>Date</th>
-              <th>Supplier</th>
-              <th>Requisition</th>
-              <th>Status</th>
-              <th>Line items</th>
-            </tr>
-          </thead>
-          <tbody>
-            {deliveries.map((d) => (
-              <tr key={d.id}>
-                <td>
-                  <Link to={`/deliveries/${d.id}`}>#{d.report_number}</Link>
-                </td>
-                <td>{new Date(d.received_date).toLocaleDateString()}</td>
-                <td>{d.supplier ?? "—"}</td>
-                <td>
-                  {d.requisition_id ? (
-                    <Link to={`/requisitions/${d.requisition_id}`}>{d.requisition_number}</Link>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td>
-                  <span className={`badge-neutral badge-status-${d.status}`}>{d.status}</span>
-                </td>
-                <td>{d.line_item_count}</td>
-              </tr>
-            ))}
-            {deliveries.length === 0 && (
-              <tr>
-                <td colSpan={6}>No deliveries yet.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <>
+          <div className="table-toolbar">
+            <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {visibleColumns.map((col) => (
+                    <th key={col.key}>{col.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <tr key={d.id}>
+                    {visibleColumns.map((col) => (
+                      <td key={col.key}>{col.render(d)}</td>
+                    ))}
+                  </tr>
+                ))}
+                {deliveries.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleColumns.length}>No deliveries yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

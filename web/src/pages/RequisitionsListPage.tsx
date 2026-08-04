@@ -3,8 +3,34 @@ import { Link } from "react-router-dom";
 import { createRequisition, listRequisitions } from "../api/requisitions";
 import { listItems } from "../api/inventory";
 import { ApiError } from "../api/client";
+import { ColumnPicker } from "../components/ColumnPicker";
 import { FulfillmentBar } from "../components/FulfillmentBar";
+import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { CreateRequisitionLineItemInput, InventoryItem, Requisition } from "../api/types";
+
+const COLUMNS: ColumnDef<Requisition>[] = [
+  {
+    key: "requisition_number",
+    label: "Requisition #",
+    render: (req) => <Link to={`/requisitions/${req.id}`}>{req.requisition_number}</Link>,
+  },
+  { key: "supplier", label: "Supplier", render: (req) => req.supplier ?? "—" },
+  { key: "line_item_count", label: "Line items", render: (req) => req.line_item_count },
+  {
+    key: "fulfillment",
+    label: "Fulfillment",
+    render: (req) => <FulfillmentBar ordered={req.quantity_ordered} received={req.quantity_received} />,
+  },
+  { key: "quantity_ordered", label: "Qty ordered", render: (req) => req.quantity_ordered, defaultVisible: false },
+  { key: "quantity_received", label: "Qty received", render: (req) => req.quantity_received, defaultVisible: false },
+  { key: "notes", label: "Notes", render: (req) => req.notes ?? "—", defaultVisible: false },
+  {
+    key: "created_at",
+    label: "Created",
+    render: (req) => new Date(req.created_at).toLocaleDateString(),
+    defaultVisible: false,
+  },
+];
 
 interface LineItemRow {
   inventory_item_id: string;
@@ -22,6 +48,7 @@ export function RequisitionsListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("requisitions", COLUMNS);
 
   async function refresh() {
     setLoading(true);
@@ -73,35 +100,36 @@ export function RequisitionsListPage() {
       {loading ? (
         <p>Loading…</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Requisition #</th>
-              <th>Supplier</th>
-              <th>Line items</th>
-              <th>Fulfillment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requisitions.map((req) => (
-              <tr key={req.id}>
-                <td>
-                  <Link to={`/requisitions/${req.id}`}>{req.requisition_number}</Link>
-                </td>
-                <td>{req.supplier ?? "—"}</td>
-                <td>{req.line_item_count}</td>
-                <td>
-                  <FulfillmentBar ordered={req.quantity_ordered} received={req.quantity_received} />
-                </td>
-              </tr>
-            ))}
-            {requisitions.length === 0 && (
-              <tr>
-                <td colSpan={4}>No requisitions yet.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <>
+          <div className="table-toolbar">
+            <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {visibleColumns.map((col) => (
+                    <th key={col.key}>{col.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {requisitions.map((req) => (
+                  <tr key={req.id}>
+                    {visibleColumns.map((col) => (
+                      <td key={col.key}>{col.render(req)}</td>
+                    ))}
+                  </tr>
+                ))}
+                {requisitions.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleColumns.length}>No requisitions yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

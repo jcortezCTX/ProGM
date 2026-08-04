@@ -201,6 +201,56 @@ model inventory_transactions {
   @@index([item_id, location], map: "idx_inventory_transactions_item_location")
 }
 
+// One row per released tag/spool, mirroring the real "Mechanical Log" Excel
+// export (logs_samples/Mechanical Log.csv) column for column - release
+// tracking, delivery-vs-need quantities, and contract/invoice pricing go well
+// beyond what inventory_items or delivery_line_items model, so this is its
+// own typed table rather than shoehorned into either (see BUILD_PLAN.md).
+// Deliberately NOT wired into inventory_transactions - unlike the Delivery
+// Log, mechanical release tracking here is independent of warehouse stock.
+model mechanical_log_items {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  release                  String?
+  supplier                 String?
+  review                   String?
+  tag_number               String?
+  qty_released             Decimal?  @db.Decimal
+  unit                     String?
+  size                     String?
+  description              String?
+  material                 String?
+  lining                   String?
+  coating                  String?
+  release_date             DateTime? @db.Date
+  due_date                 DateTime? @db.Date
+  area                     String?
+  system                   String?
+  contract_dwg             String?
+  system2                  String?
+  shop_dwg                 String?
+  delivered_qty            Decimal?  @db.Decimal
+  need_qty                 Decimal?  @db.Decimal
+  received_on              DateTime? @db.Date
+  received_by              String?
+  storage_location         String?
+  notes                    String?
+  estimate_cost            Decimal?  @db.Decimal
+  contract_unit_price      Decimal?  @db.Decimal
+  contract_extended_price  Decimal?  @db.Decimal
+  above_below              String?
+  invoice_no               String?
+  invoice_unit_price       Decimal?  @db.Decimal
+  invoice_extended_price   Decimal?  @db.Decimal
+  delta_invoice_contract   Decimal?  @db.Decimal
+  qty_invoiced_to_date     Decimal?  @db.Decimal
+  created_by               String?   @db.Uuid
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  users                    users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tag_number], map: "idx_mechanical_log_items_tag_number")
+}
+
 model log_entries {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   log_type_id String    @db.Uuid
@@ -299,6 +349,7 @@ model users {
   inventory_transactions         inventory_transactions[]
   log_entries                    log_entries[]
   log_types                      log_types[]
+  mechanical_log_items           mechanical_log_items[]
   requisitions                   requisitions[]
   schedule_event_attendees       schedule_event_attendees[]
   schedule_events                schedule_events[]

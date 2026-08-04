@@ -2,13 +2,42 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { createItem, listItems } from "../api/inventory";
 import { ApiError } from "../api/client";
+import { ColumnPicker } from "../components/ColumnPicker";
+import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { InventoryItem } from "../api/types";
+
+const COLUMNS: ColumnDef<InventoryItem>[] = [
+  { key: "sku", label: "SKU", render: (item) => item.sku },
+  {
+    key: "name",
+    label: "Name",
+    render: (item) => <Link to={`/inventory/${item.id}`}>{item.name}</Link>,
+  },
+  { key: "unit", label: "Unit", render: (item) => item.unit },
+  {
+    key: "quantity_on_hand",
+    label: "Quantity on hand",
+    render: (item) => (
+      <>
+        {item.quantity_on_hand}
+        {item.low_stock && <span className="badge">low stock</span>}
+      </>
+    ),
+  },
+  { key: "reorder_threshold", label: "Reorder threshold", render: (item) => item.reorder_threshold },
+  { key: "description", label: "Description", render: (item) => item.description ?? "—", defaultVisible: false },
+  { key: "price", label: "Price", render: (item) => `$${item.price}`, defaultVisible: false },
+  { key: "total_value", label: "Total value", render: (item) => `$${item.total_value}`, defaultVisible: false },
+  { key: "barcode", label: "Barcode", render: (item) => item.barcode ?? "—", defaultVisible: false },
+  { key: "tags", label: "Tags", render: (item) => item.tags.join(", ") || "—", defaultVisible: false },
+];
 
 export function InventoryListPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("inventory", COLUMNS);
 
   async function refresh() {
     setLoading(true);
@@ -69,38 +98,34 @@ export function InventoryListPage() {
               <span className="stat-label">Low stock</span>
             </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Name</th>
-                <th>Unit</th>
-                <th>Quantity on hand</th>
-                <th>Reorder threshold</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id} className={item.low_stock ? "low-stock" : ""}>
-                  <td>{item.sku}</td>
-                  <td>
-                    <Link to={`/inventory/${item.id}`}>{item.name}</Link>
-                  </td>
-                  <td>{item.unit}</td>
-                  <td>
-                    {item.quantity_on_hand}
-                    {item.low_stock && <span className="badge">low stock</span>}
-                  </td>
-                  <td>{item.reorder_threshold}</td>
-                </tr>
-              ))}
-              {items.length === 0 && (
+          <div className="table-toolbar">
+            <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5}>No inventory items yet.</td>
+                  {visibleColumns.map((col) => (
+                    <th key={col.key}>{col.label}</th>
+                  ))}
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className={item.low_stock ? "low-stock" : ""}>
+                    {visibleColumns.map((col) => (
+                      <td key={col.key}>{col.render(item)}</td>
+                    ))}
+                  </tr>
+                ))}
+                {items.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleColumns.length}>No inventory items yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>

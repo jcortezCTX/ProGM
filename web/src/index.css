@@ -181,8 +181,8 @@ body {
 
 .app-main {
   flex: 1;
+  min-width: 0;
   padding: 1.75rem 2rem;
-  max-width: 1100px;
 }
 
 .page-header {
@@ -800,4 +800,103 @@ button:disabled {
 .link-button:hover {
   background: var(--page-bg);
   color: var(--text);
+}
+
+/* Table toolbar + column customization (Inventory/Deliveries/Requisitions/Mechanical Log) */
+
+.table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+}
+
+.table-scroll table {
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.table-scroll table th,
+.table-scroll table td {
+  white-space: nowrap;
+}
+
+.column-picker {
+  position: relative;
+}
+
+.column-picker-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 10;
+  width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 0.6rem 0;
+}
+
+.column-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0.9rem 0.5rem;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.column-picker-reset {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--sky-dark);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+.column-picker-reset:hover {
+  text-decoration: underline;
+  background: none;
+}
+
+.column-picker-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.column-picker-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.column-picker-item:hover {
+  background: var(--page-bg);
+}
+
+.column-picker-item input:disabled {
+  cursor: not-allowed;
 }
