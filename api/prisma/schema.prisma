@@ -23,31 +23,84 @@ model attachments {
   @@index([entity_type, entity_id], map: "idx_attachments_entity")
 }
 
-model deliveries {
+// A vendor order. Not everything on a requisition arrives at once - it's
+// fulfilled across multiple partial deliveries over time (see
+// requisition_fulfillment, and img/deliveryLog.png for the source workflow).
+model requisitions {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requisition_number     String                   @unique
+  supplier               String?
+  notes                  String?
+  created_by             String?                  @db.Uuid
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
+  users                  users?                   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requisition_line_items requisition_line_items[]
+  deliveries             deliveries[]
+}
+
+// What was ordered - quantity_ordered is the expected amount; actual receipt
+// is tracked separately via delivery_line_items / requisition_fulfillment.
+model requisition_line_items {
   id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  reference_number    String                @unique
-  status              delivery_status       @default(scheduled)
-  destination         String?
-  scheduled_at        DateTime?             @db.Timestamptz(6)
-  delivered_at        DateTime?             @db.Timestamptz(6)
-  created_by          String?               @db.Uuid
+  requisition_id      String                @db.Uuid
+  inventory_item_id   String                @db.Uuid
+  description         String?
+  quantity_ordered    Decimal               @db.Decimal
   created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
-  users               users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requisitions        requisitions          @relation(fields: [requisition_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inventory_items     inventory_items       @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   delivery_line_items delivery_line_items[]
-  tasks               tasks[]
+
+  @@index([requisition_id], map: "idx_requisition_line_items_requisition")
+}
+
+// A receiving report: one truck/shipment arriving on site, inspected and
+// logged against a requisition. Accepted/conditionally-accepted line items
+// post `received` inventory transactions; rejected items post nothing.
+model deliveries {
+  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_number              Int                   @unique @default(autoincrement())
+  requisition_id             String?               @db.Uuid
+  supplier                   String?
+  bill_of_lading_no          String?
+  truck_number               String?
+  received_date              DateTime              @default(now()) @db.Date
+  status                     delivery_status       @default(open)
+  accepted_by_supervision    Boolean               @default(false)
+  received_in_good_condition Boolean               @default(false)
+  conforms_to_specifications Boolean               @default(false)
+  qc_notes                   String?
+  accepted_by                String?
+  created_by                 String?               @db.Uuid
+  created_at                 DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+  users                      users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requisitions               requisitions?         @relation(fields: [requisition_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_line_items        delivery_line_items[]
+  tasks                      tasks[]
 }
 
 model delivery_line_items {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  delivery_id       String          @db.Uuid
-  inventory_item_id String          @db.Uuid
-  quantity          Decimal         @db.Decimal
-  note              String?
-  deliveries        deliveries      @relation(fields: [delivery_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  inventory_items   inventory_items @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  delivery_id              String                    @db.Uuid
+  requisition_line_item_id String?                   @db.Uuid
+  inventory_item_id        String                    @db.Uuid
+  shipment_number          String?
+  description              String?
+  quantity_received        Decimal                   @db.Decimal
+  condition                String?
+  properly_marked          Boolean?
+  disposition              delivery_line_disposition @default(accept)
+  note                     String?
+  created_at               DateTime                  @default(now()) @db.Timestamptz(6)
+  deliveries               deliveries                @relation(fields: [delivery_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  requisition_line_items   requisition_line_items?   @relation(fields: [requisition_line_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_items          inventory_items           @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_transactions   inventory_transactions[]
 
   @@index([delivery_id], map: "idx_delivery_line_items_delivery")
+  @@index([requisition_line_item_id], map: "idx_delivery_line_items_requisition_line_item")
 }
 
 model drawing_revisions {
@@ -97,20 +150,21 @@ model inventory_items {
   delivery_line_items    delivery_line_items[]
   inventory_transactions inventory_transactions[]
   inventory_item_tags    inventory_item_tags[]
+  requisition_line_items requisition_line_items[]
 }
 
 // Admin-configured template shared by all inventory items - mirrors the
 // log_types.field_schema pattern (CLAUDE.md rule 3) rather than hardcoding
 // one column per field, since these are meant to be user-defined.
 model inventory_custom_field_defs {
-  id          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  field_key   String                       @unique
-  label       String
-  field_type  inventory_custom_field_type
-  options     Json?
-  sort_order  Int                          @default(0)
-  created_at  DateTime                     @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime                     @default(now()) @db.Timestamptz(6)
+  id         String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  field_key  String                      @unique
+  label      String
+  field_type inventory_custom_field_type
+  options    Json?
+  sort_order Int                         @default(0)
+  created_at DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime                    @default(now()) @db.Timestamptz(6)
 }
 
 model inventory_tags {
@@ -130,16 +184,18 @@ model inventory_item_tags {
 }
 
 model inventory_transactions {
-  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id         String                     @db.Uuid
-  type            inventory_transaction_type
-  quantity        Decimal                    @db.Decimal
-  location        String                     @default("main")
-  note            String?
-  created_by      String?                    @db.Uuid
-  created_at      DateTime                   @default(now()) @db.Timestamptz(6)
-  users           users?                     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inventory_items inventory_items            @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  item_id               String                     @db.Uuid
+  type                  inventory_transaction_type
+  quantity              Decimal                    @db.Decimal
+  location              String                     @default("main")
+  note                  String?
+  delivery_line_item_id String?                    @db.Uuid
+  created_by            String?                    @db.Uuid
+  created_at            DateTime                   @default(now()) @db.Timestamptz(6)
+  users                 users?                     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_items       inventory_items            @relation(fields: [item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  delivery_line_items   delivery_line_items?       @relation(fields: [delivery_line_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([item_id], map: "idx_inventory_transactions_item")
   @@index([item_id, location], map: "idx_inventory_transactions_item_location")
@@ -243,6 +299,7 @@ model users {
   inventory_transactions         inventory_transactions[]
   log_entries                    log_entries[]
   log_types                      log_types[]
+  requisitions                   requisitions[]
   schedule_event_attendees       schedule_event_attendees[]
   schedule_events                schedule_events[]
   task_comments                  task_comments[]
@@ -256,6 +313,13 @@ view inventory_current_stock {
   quantity_on_hand Decimal? @db.Decimal
 }
 
+// Derived, never stored - same rule as inventory_current_stock. Only accepted
+// and conditionally-accepted line items count as received.
+view requisition_fulfillment {
+  requisition_line_item_id String?  @db.Uuid
+  quantity_received        Decimal? @db.Decimal
+}
+
 enum attendee_response {
   pending
   accepted
@@ -263,10 +327,14 @@ enum attendee_response {
 }
 
 enum delivery_status {
-  scheduled
-  in_transit
-  delivered
-  failed
+  open
+  closed
+}
+
+enum delivery_line_disposition {
+  accept
+  conditional_use
+  reject
 }
 
 enum drawing_status {

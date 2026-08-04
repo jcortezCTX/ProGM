@@ -1,7 +1,7 @@
 import "dotenv/config";
-import { PrismaClient } from "../src/generated/prisma/client.js";
-
-const prisma = new PrismaClient();
+import { prisma } from "../src/lib/prisma.js";
+import { addDeliveryLineItem, createDelivery, updateDelivery } from "../src/services/deliveryService.js";
+import { createRequisition } from "../src/services/requisitionService.js";
 
 const DEV_USER = {
   email: "dev@opshub.local",
@@ -45,6 +45,43 @@ const DEMO_ITEM = {
     mark_number: "110.4-24-03",
     reusable: false,
   },
+};
+
+// Matches img/deliveryLog.png (Garney's real "Material Inspection & Receiving
+// Report" #69) so the Delivery Log module has a real receiving report to
+// render against. quantity_ordered on the requisition line items is
+// invented for the demo — the source form only shows what was received on
+// this one truck, not the full requisition total.
+const PIPE_ITEMS = [
+  {
+    sku: "PIPE-20IN-12FT-DI",
+    name: '20" 12\' Ductile Iron Pipe (RAS)',
+    unit: "each",
+    reorder_threshold: 5,
+    custom_fields: { system: "RAS", type_material: "DI", size_dims: '20" 12\'' },
+  },
+  {
+    sku: "PIPE-20IN-11FT6IN-DI",
+    name: '20" 11\'6" Ductile Iron Pipe (RAS)',
+    unit: "each",
+    reorder_threshold: 5,
+    custom_fields: { system: "RAS", type_material: "DI", size_dims: '20" 11\'6"' },
+  },
+];
+
+const DELIVERY_LOG_DEMO = {
+  requisition_number: "0673P028",
+  supplier: "KAT",
+  bill_of_lading_no: "2846553",
+  truck_number: "Quikrete",
+  received_date: "2026-07-22",
+  accepted_by: "Pablo Chapellin",
+  lines: [
+    { sku: "PIPE-20IN-12FT-DI", shipment_number: "29210665-000", quantity: 2 },
+    { sku: "PIPE-20IN-11FT6IN-DI", shipment_number: "29210665-001", quantity: 2 },
+    { sku: "PIPE-20IN-12FT-DI", shipment_number: "29210665-002", quantity: 1 },
+    { sku: "PIPE-20IN-11FT6IN-DI", shipment_number: "29210665-003", quantity: 1 },
+  ],
 };
 
 // Mirrors the "Custom Fields" panel in img/item.png. Admin-configured and
@@ -185,8 +222,74 @@ async function main() {
     });
   }
 
+  const pipeItemIds = new Map<string, string>();
+  for (const itemInput of PIPE_ITEMS) {
+    const item = await prisma.inventory_items.upsert({
+      where: { sku: itemInput.sku },
+      update: {},
+      create: itemInput,
+    });
+    pipeItemIds.set(itemInput.sku, item.id);
+  }
+
+  const existingRequisition = await prisma.requisitions.findUnique({
+    where: { requisition_number: DELIVERY_LOG_DEMO.requisition_number },
+    include: { requisition_line_items: true },
+  });
+  const requisition =
+    existingRequisition ??
+    (await createRequisition({
+      requisition_number: DELIVERY_LOG_DEMO.requisition_number,
+      supplier: DELIVERY_LOG_DEMO.supplier,
+      created_by: user.id,
+      line_items: PIPE_ITEMS.map((p) => ({
+        inventory_item_id: pipeItemIds.get(p.sku) as string,
+        description: p.name,
+        quantity_ordered: 10,
+      })),
+    }));
+
+  const existingDelivery = await prisma.deliveries.findFirst({
+    where: { bill_of_lading_no: DELIVERY_LOG_DEMO.bill_of_lading_no },
+  });
+  if (!existingDelivery) {
+    const delivery = await createDelivery({
+      requisition_id: requisition.id,
+      supplier: DELIVERY_LOG_DEMO.supplier,
+      bill_of_lading_no: DELIVERY_LOG_DEMO.bill_of_lading_no,
+      truck_number: DELIVERY_LOG_DEMO.truck_number,
+      received_date: DELIVERY_LOG_DEMO.received_date,
+      created_by: user.id,
+    });
+
+    for (const line of DELIVERY_LOG_DEMO.lines) {
+      const itemId = pipeItemIds.get(line.sku) as string;
+      const reqLineItem = requisition.requisition_line_items.find((li) => li.inventory_item_id === itemId);
+      await addDeliveryLineItem(delivery.id, {
+        requisition_line_item_id: reqLineItem?.id,
+        inventory_item_id: itemId,
+        shipment_number: line.shipment_number,
+        description: PIPE_ITEMS.find((p) => p.sku === line.sku)?.name,
+        quantity_received: line.quantity,
+        condition: "GOOD",
+        properly_marked: true,
+        disposition: "accept",
+        location: "yard",
+        created_by: user.id,
+      });
+    }
+
+    await updateDelivery(delivery.id, {
+      status: "closed",
+      accepted_by_supervision: true,
+      received_in_good_condition: true,
+      conforms_to_specifications: true,
+      accepted_by: DELIVERY_LOG_DEMO.accepted_by,
+    });
+  }
+
   console.log(
-    `Seeded dev user (${user.email}), ${ITEMS.length + 1} inventory items, ${CUSTOM_FIELD_DEFS.length} custom field defs.`,
+    `Seeded dev user (${user.email}), ${ITEMS.length + 3} inventory items, ${CUSTOM_FIELD_DEFS.length} custom field defs, 1 requisition, 1 delivery.`,
   );
 }
 
