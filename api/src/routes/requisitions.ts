@@ -38,7 +38,11 @@ requisitionsRouter.post("/", async (req, res) => {
     return;
   }
   try {
-    const requisition = await createRequisition(parsed.data);
+    const created = await createRequisition(parsed.data);
+    // Re-fetch through getRequisition so the response shape matches
+    // GET /:id exactly (item_sku/item_name/quantity_received enrichment),
+    // instead of returning the raw create payload's different shape.
+    const requisition = await getRequisition(created.id);
     res.status(201).json(requisition);
   } catch (err) {
     handleError(res, err);
