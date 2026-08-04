@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const FUTURE_MODULES = ["Deliveries", "Drawings", "Tasks", "Scheduling", "Custom Logs"];
+const FUTURE_MODULES = ["Drawings", "Tasks", "Scheduling", "Custom Logs"];
 
 // Phase 3 replaces this with the signed-in Azure AD user (CLAUDE.md: no auth before then).
 const DEV_USER_NAME = "Dev User";
@@ -24,6 +24,9 @@ export function Layout() {
       <nav className="app-tabs">
         <NavLink to="/inventory" className={({ isActive }) => (isActive ? "active" : "")}>
           Inventory
+        </NavLink>
+        <NavLink to="/deliveries" className={({ isActive }) => (isActive ? "active" : "")}>
+          Deliveries
         </NavLink>
         {FUTURE_MODULES.map((name) => (
           <span key={name} className="tab-placeholder" title="Coming soon">
