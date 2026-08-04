@@ -106,7 +106,7 @@ transactions, not a separate stock mechanism. Modeled on a real paper form,
       `received` transaction atomically in the same DB transaction as the
       line item insert — a partial write here corrupts stock. Rejected
       items post nothing.
-- [ ] Delivery list + detail UI, requisition list + detail UI (fulfillment
+- [x] Delivery list + detail UI, requisition list + detail UI (fulfillment
       progress)
 
 ---
@@ -250,6 +250,16 @@ things deferred. Keep it short and factual.
   integration tests. UI not started. `inventory_transactions` gained an
   optional `delivery_line_item_id` back-reference for audit traceability
   (which delivery caused a given stock movement).
+- 2026-08-04: Delivery Log UI done — deliveries list/detail (line items,
+  add-line-item form, receiving QC section) and requisitions list/detail
+  (fulfillment progress bar). "Deliveries" promoted from a `FUTURE_MODULES`
+  placeholder to a real nav tab in `Layout.tsx`; requisitions have no
+  top-level nav slot, reached via a link from the deliveries list instead.
+  Known gap, not worked around: no endpoint returns "which deliveries
+  fulfilled this requisition," so the requisition detail page shows
+  fulfillment quantities but not a list of contributing delivery reports —
+  would need a reverse-lookup addition to `GET /api/requisitions/:id` if
+  wanted.
 - 2026-08-04: two dropped-in CSVs at `logs_samples/` (Mechanical Log,
   Drawing Release Log) — reference material for a future custom-log-engine
   or drawing-log phase, not yet acted on.
