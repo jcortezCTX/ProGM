@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const FUTURE_MODULES = ["Drawings", "Tasks", "Scheduling", "Custom Logs"];
+const PROJECT_LOG_PLACEHOLDERS = ["Drawing Log", "Mechanical Log", "Custom Log"];
+const FUTURE_MODULES = ["Tasks", "Scheduling"];
 
 // Phase 3 replaces this with the signed-in Azure AD user (CLAUDE.md: no auth before then).
 const DEV_USER_NAME = "Dev User";
@@ -21,22 +22,41 @@ export function Layout() {
           {DEV_USER_NAME}
         </span>
       </header>
-      <nav className="app-tabs">
-        <NavLink to="/inventory" className={({ isActive }) => (isActive ? "active" : "")}>
-          Inventory
-        </NavLink>
-        <NavLink to="/deliveries" className={({ isActive }) => (isActive ? "active" : "")}>
-          Deliveries
-        </NavLink>
-        {FUTURE_MODULES.map((name) => (
-          <span key={name} className="tab-placeholder" title="Coming soon">
-            {name}
-          </span>
-        ))}
-      </nav>
-      <main className="app-main">
-        <Outlet />
-      </main>
+      <div className="app-body">
+        <nav className="app-sidebar">
+          <NavLink to="/inventory" className={({ isActive }) => (isActive ? "active" : "")}>
+            Inventory
+          </NavLink>
+
+          <details className="sidebar-group" open>
+            <summary className="sidebar-group-toggle">
+              Project Logs
+              <span className="sidebar-group-chevron" aria-hidden="true">
+                &rsaquo;
+              </span>
+            </summary>
+            <div className="sidebar-group-items">
+              <NavLink to="/deliveries" className={({ isActive }) => (isActive ? "active" : "")}>
+                Delivery Log
+              </NavLink>
+              {PROJECT_LOG_PLACEHOLDERS.map((name) => (
+                <span key={name} className="tab-placeholder" title="Coming soon">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </details>
+
+          {FUTURE_MODULES.map((name) => (
+            <span key={name} className="tab-placeholder" title="Coming soon">
+              {name}
+            </span>
+          ))}
+        </nav>
+        <main className="app-main">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

@@ -90,28 +90,38 @@ body {
   font-size: 0.75rem;
 }
 
-.app-tabs {
+.app-body {
   display: flex;
-  gap: 1.75rem;
-  padding: 0 1.75rem;
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--border);
+  flex: 1;
 }
 
-.app-tabs a,
+.app-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border);
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-sidebar > a,
+.sidebar-group-items > a,
 .tab-placeholder {
-  display: inline-block;
-  padding: 0.9rem 0;
+  display: block;
+  padding: 0.65rem 1.5rem;
   text-decoration: none;
   color: var(--text);
-  font-size: 0.95rem;
-  border-bottom: 3px solid transparent;
+  font-size: 0.92rem;
+  border-left: 3px solid transparent;
 }
 
-.app-tabs a.active {
+.app-sidebar > a.active,
+.sidebar-group-items > a.active {
   font-weight: 600;
   color: var(--navy);
-  border-bottom-color: var(--sky);
+  background: var(--page-bg);
+  border-left-color: var(--sky);
 }
 
 .tab-placeholder {
@@ -119,12 +129,60 @@ body {
   cursor: default;
 }
 
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-group-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.65rem 1.5rem;
+  background: none;
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sidebar-group-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-group-toggle:hover {
+  background: var(--page-bg);
+}
+
+.sidebar-group-chevron {
+  transition: transform 0.15s ease;
+}
+
+.sidebar-group[open] .sidebar-group-chevron {
+  transform: rotate(90deg);
+}
+
+.sidebar-group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-group-items > a,
+.sidebar-group-items > .tab-placeholder {
+  padding-left: 2.5rem;
+  font-size: 0.88rem;
+}
+
 .app-main {
   flex: 1;
   padding: 1.75rem 2rem;
   max-width: 1100px;
-  width: 100%;
-  margin: 0 auto;
 }
 
 .page-header {
