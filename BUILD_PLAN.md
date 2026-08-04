@@ -86,14 +86,28 @@ unauthenticated API requests are properly rejected.
 
 ## Phase 4 — Delivery Log
 
-Reuses inventory. A delivery going out should create `delivered_out`
-transactions, not a separate stock mechanism.
+**Corrected 2026-08-04** — this is inbound receiving, not outbound distribution.
+A vendor truck arrives on site with material against a requisition (an
+internal ID for an order sent to a vendor); not everything on a requisition
+arrives at once, so requisitions are fulfilled across multiple partial
+deliveries over time. Reuses inventory: accepted line items post `received`
+transactions, not a separate stock mechanism. Modeled on a real paper form,
+`img/deliveryLog.png` (Garney's "Material Inspection & Receiving Report").
 
-- [ ] Delivery CRUD endpoints + line items
-- [ ] Status transitions (scheduled → in_transit → delivered/failed)
-- [ ] On delivery completion, write inventory transactions atomically in one
-      DB transaction — a partial write here corrupts stock
-- [ ] Delivery list + detail UI
+- [ ] Requisition CRUD (requisition number, supplier, expected line items —
+      item + quantity ordered)
+- [ ] Requisition fulfillment view: quantity received vs. ordered per line,
+      derived from delivery line items, never stored
+- [ ] Delivery (receiving report) CRUD + line items: shipment #, description,
+      quantity received, condition, properly marked, disposition
+      (accept/conditional_use/reject), plus report-level QC acceptance
+      fields and status (open/closed)
+- [ ] On accepting/conditionally-accepting a line item, write the inventory
+      `received` transaction atomically in the same DB transaction as the
+      line item insert — a partial write here corrupts stock. Rejected
+      items post nothing.
+- [ ] Delivery list + detail UI, requisition list + detail UI (fulfillment
+      progress)
 
 ---
 
@@ -220,3 +234,13 @@ things deferred. Keep it short and factual.
   `web/src/pages/InventoryDetailPage.tsx` to match `img/item.png`'s layout
   (stat cards, Product Information, Custom Fields, etc.) while keeping the
   GarneyOne-styled app shell and the existing transaction ledger UI intact.
+- 2026-08-04: Phase 4 scope decisions, confirmed with the user:
+  requisitions get full tracking (real entity + expected line items, so
+  fulfillment vs. what was ordered is computable), Contract is explicitly
+  NOT a modeled entity for now — this project happens to split into two
+  contracts (BRSLS, AWWTF) but that's a one-off case, not something to
+  build company-wide structure around; if a specific project needs it,
+  extend the custom-fields pattern (like inventory items already have)
+  rather than adding a dedicated column/table. QC gets the full receiving
+  workflow (per-line condition/properly-marked/disposition, report-level
+  acceptance statements, typed accepted-by name — no real e-signature).
