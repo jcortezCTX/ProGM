@@ -94,15 +94,15 @@ deliveries over time. Reuses inventory: accepted line items post `received`
 transactions, not a separate stock mechanism. Modeled on a real paper form,
 `img/deliveryLog.png` (Garney's "Material Inspection & Receiving Report").
 
-- [ ] Requisition CRUD (requisition number, supplier, expected line items —
+- [x] Requisition CRUD (requisition number, supplier, expected line items —
       item + quantity ordered)
-- [ ] Requisition fulfillment view: quantity received vs. ordered per line,
+- [x] Requisition fulfillment view: quantity received vs. ordered per line,
       derived from delivery line items, never stored
-- [ ] Delivery (receiving report) CRUD + line items: shipment #, description,
+- [x] Delivery (receiving report) CRUD + line items: shipment #, description,
       quantity received, condition, properly marked, disposition
       (accept/conditional_use/reject), plus report-level QC acceptance
       fields and status (open/closed)
-- [ ] On accepting/conditionally-accepting a line item, write the inventory
+- [x] On accepting/conditionally-accepting a line item, write the inventory
       `received` transaction atomically in the same DB transaction as the
       line item insert — a partial write here corrupts stock. Rejected
       items post nothing.
@@ -244,3 +244,12 @@ things deferred. Keep it short and factual.
   rather than adding a dedicated column/table. QC gets the full receiving
   workflow (per-line condition/properly-marked/disposition, report-level
   acceptance statements, typed accepted-by name — no real e-signature).
+- 2026-08-04: Delivery Log backend done — schema, service layer, routes,
+  seed (a real receiving report, PO 0673P028/supplier KAT), curl-verified
+  including reject-posts-nothing and requisition fulfillment tracking, plus
+  integration tests. UI not started. `inventory_transactions` gained an
+  optional `delivery_line_item_id` back-reference for audit traceability
+  (which delivery caused a given stock movement).
+- 2026-08-04: two dropped-in CSVs at `logs_samples/` (Mechanical Log,
+  Drawing Release Log) — reference material for a future custom-log-engine
+  or drawing-log phase, not yet acted on.
