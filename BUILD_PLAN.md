@@ -292,3 +292,19 @@ things deferred. Keep it short and factual.
   package.json) against a running dev server: screenshotted all four list
   pages, the columns picker open/toggling, and a full create round-trip on
   the Mechanical Log ending on the persisted entry; zero console errors.
+- 2026-08-04: user asked for a login page + admin permissions UI. Flagged the
+  conflict with CLAUDE.md (Phase 3 is Azure AD and requires tenant details +
+  explicit go-ahead; DB rule #5 says never store passwords) and asked before
+  building anything. Decisions, **not yet built** — queued for after Phase 5
+  (Drawing Log), which stays next:
+  - Login will be a **temporary local username/password dev login**, not real
+    Azure AD — this deliberately relaxes DB rule #5 ("never store passwords")
+    until Phase 3 replaces it with MSAL/Azure AD as originally planned. Needs
+    a `password_hash` column (or similar) added to `users` via a real Prisma
+    migration when built.
+  - Permission model is **3 fixed roles (admin/manager/member)**, matching
+    Phase 3's original scope — explicitly NOT a per-page/per-CRUD-action
+    matrix, and explicitly NOT pre-building permission schema for Inventory
+    Task or Scheduling (Phase 6), which don't exist yet.
+  - Admin page: manage user role assignment and see which roles can access
+    which existing pages/modules.
