@@ -1,3 +1,27 @@
+// Temporary local login (see BUILD_PLAN.md) — replaced by Azure AD in Phase 3.
+export type UserRole = "admin" | "manager" | "member";
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role: UserRole;
+  has_password: boolean;
+  created_at: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: PublicUser;
+}
+
+export interface CreateUserInput {
+  email: string;
+  display_name: string;
+  role: UserRole;
+  password: string;
+}
+
 // Decimal/NUMERIC columns come over the wire as strings — never parsed to
 // float here, only ever displayed or round-tripped as form input values.
 

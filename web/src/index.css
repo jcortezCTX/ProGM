@@ -77,6 +77,16 @@ body {
   opacity: 0.95;
 }
 
+.app-user .button-secondary {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.app-user .button-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
 .app-user-avatar {
   display: flex;
   align-items: center;
@@ -353,6 +363,25 @@ button:disabled {
 .button-secondary:hover {
   background: var(--page-bg);
   color: var(--text);
+}
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--page-bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+  align-items: stretch;
+}
+
+.login-card .app-logo {
+  align-self: center;
+  margin-bottom: 0.5rem;
 }
 
 /* Item detail page (Sortly-style card layout, see InventoryDetailPage.tsx) */

@@ -1,13 +1,20 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 
 const PROJECT_LOG_PLACEHOLDERS = ["Drawing Log", "Custom Log"];
 const FUTURE_MODULES = ["Tasks", "Scheduling"];
 
-// Phase 3 replaces this with the signed-in Azure AD user (CLAUDE.md: no auth before then).
-const DEV_USER_NAME = "Dev User";
-const DEV_USER_INITIALS = "DU";
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export function Layout() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -17,10 +24,15 @@ export function Layout() {
             OPS<span className="accent">HUB</span>
           </span>
         </span>
-        <span className="app-user" title="Hardcoded until Phase 3 auth">
-          <span className="app-user-avatar">{DEV_USER_INITIALS}</span>
-          {DEV_USER_NAME}
-        </span>
+        {user && (
+          <span className="app-user">
+            <span className="app-user-avatar">{initials(user.display_name)}</span>
+            {user.display_name}
+            <button type="button" className="button-secondary" onClick={() => logout()}>
+              Log out
+            </button>
+          </span>
+        )}
       </header>
       <div className="app-body">
         <nav className="app-sidebar">
@@ -55,6 +67,12 @@ export function Layout() {
               {name}
             </span>
           ))}
+
+          {user?.role === "admin" && (
+            <NavLink to="/admin/users" className={({ isActive }) => (isActive ? "active" : "")}>
+              Admin
+            </NavLink>
+          )}
         </nav>
         <main className="app-main">
           <Outlet />

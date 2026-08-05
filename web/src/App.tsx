@@ -8,20 +8,29 @@ import { RequisitionsListPage } from "./pages/RequisitionsListPage";
 import { RequisitionDetailPage } from "./pages/RequisitionDetailPage";
 import { MechanicalLogListPage } from "./pages/MechanicalLogListPage";
 import { MechanicalLogDetailPage } from "./pages/MechanicalLogDetailPage";
+import { LoginPage } from "./pages/LoginPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { RequireAuth, RequireRole } from "./auth/RequireAuth";
 
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/inventory" replace />} />
-        <Route path="/inventory" element={<InventoryListPage />} />
-        <Route path="/inventory/:id" element={<InventoryDetailPage />} />
-        <Route path="/deliveries" element={<DeliveriesListPage />} />
-        <Route path="/deliveries/:id" element={<DeliveryDetailPage />} />
-        <Route path="/requisitions" element={<RequisitionsListPage />} />
-        <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
-        <Route path="/mechanical-log" element={<MechanicalLogListPage />} />
-        <Route path="/mechanical-log/:id" element={<MechanicalLogDetailPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Navigate to="/inventory" replace />} />
+          <Route path="/inventory" element={<InventoryListPage />} />
+          <Route path="/inventory/:id" element={<InventoryDetailPage />} />
+          <Route path="/deliveries" element={<DeliveriesListPage />} />
+          <Route path="/deliveries/:id" element={<DeliveryDetailPage />} />
+          <Route path="/requisitions" element={<RequisitionsListPage />} />
+          <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
+          <Route path="/mechanical-log" element={<MechanicalLogListPage />} />
+          <Route path="/mechanical-log/:id" element={<MechanicalLogDetailPage />} />
+          <Route element={<RequireRole role="admin" />}>
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+          </Route>
+        </Route>
       </Route>
     </Routes>
   );
