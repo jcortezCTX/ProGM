@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, buildQueryString } from "./client";
 import type {
   CreateCustomFieldDefInput,
   CreateItemInput,
@@ -8,11 +8,24 @@ import type {
   InventoryItemDetail,
   InventoryTag,
   InventoryTransaction,
+  ListResponse,
   UpdateItemInput,
 } from "./types";
 
-export function listItems(): Promise<InventoryItem[]> {
-  return apiFetch("/inventory/items");
+export type InventorySortField = "name" | "sku" | "price" | "quantity_on_hand";
+
+export interface ListItemsParams {
+  cursor?: string;
+  limit?: number;
+  sort?: InventorySortField;
+  order?: "asc" | "desc";
+  q?: string;
+  tag?: string;
+  low_stock?: "true" | "false";
+}
+
+export function listItems(params: ListItemsParams = {}): Promise<ListResponse<InventoryItem>> {
+  return apiFetch(`/inventory/items${buildQueryString(params)}`);
 }
 
 export function createItem(input: CreateItemInput): Promise<InventoryItem> {

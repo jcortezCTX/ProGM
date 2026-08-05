@@ -11,6 +11,18 @@ export class ApiError extends Error {
   }
 }
 
+// Serializes list-query params into a query string, dropping undefined
+// values so callers can pass a full params object without conditionally
+// building it up field by field.
+export function buildQueryString(params: object): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params) as [string, string | number | undefined][]) {
+    if (value !== undefined) search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
