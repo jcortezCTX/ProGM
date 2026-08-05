@@ -1,8 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { createDrawing, listDrawings } from "../api/drawings";
+import { createDrawing, listDrawings, type DrawingSortField } from "../api/drawings";
 import { ApiError } from "../api/client";
 import { ColumnPicker } from "../components/ColumnPicker";
+import { DataTable } from "../components/DataTable";
+import { SearchBox } from "../components/SearchBox";
+import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { CreateDrawingInput, Drawing } from "../api/types";
 
@@ -10,15 +13,25 @@ const COLUMNS: ColumnDef<Drawing>[] = [
   {
     key: "drawing_number",
     label: "Drawing #",
+    sortField: "drawing_number",
     render: (d) => <Link to={`/drawings/${d.id}`}>{d.drawing_number}</Link>,
   },
-  { key: "title", label: "Title", render: (d) => d.title },
+  { key: "title", label: "Title", sortField: "title", render: (d) => d.title },
   {
     key: "status",
     label: "Status",
+    sortField: "status",
     render: (d) => <span className={`badge-neutral badge-status-${d.status}`}>{d.status.replace("_", " ")}</span>,
   },
-  { key: "current_revision_code", label: "Current Rev", render: (d) => d.current_revision_code ?? "—" },
+  {
+    key: "current_revision_code",
+    label: "Current Rev",
+    sortField: "current_revision_code",
+    render: (d) => d.current_revision_code ?? "—",
+  },
+  // Not sortable: revision_count is a _count aggregate, not a plain column -
+  // seeking on it would need the same raw-SQL treatment as Inventory stock,
+  // deferred until actually needed (see the table-enhancements plan).
   { key: "revision_count", label: "Revisions", render: (d) => d.revision_count },
   { key: "discipline", label: "Discipline", render: (d) => d.discipline ?? "—" },
   { key: "drawing_type", label: "Type", render: (d) => d.drawing_type ?? "—", defaultVisible: false },
@@ -32,32 +45,31 @@ const COLUMNS: ColumnDef<Drawing>[] = [
 ];
 
 export function DrawingsListPage() {
-  const [drawings, setDrawings] = useState<Drawing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("drawings", COLUMNS);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      setDrawings(await listDrawings());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load drawings");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    refresh();
-  }, []);
+  const {
+    rows,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    refetch,
+    sort,
+    order,
+    setSort,
+    q,
+    setQ,
+  } = useListQuery<Drawing, DrawingSortField>({
+    queryKeyBase: "drawings",
+    fetchPage: listDrawings,
+    defaultSort: "drawing_number",
+  });
 
   async function handleCreate(input: CreateDrawingInput) {
     await createDrawing(input);
     setShowForm(false);
-    await refresh();
+    await refetch();
   }
 
   return (
@@ -71,39 +83,31 @@ export function DrawingsListPage() {
 
       {showForm && <AddDrawingForm onSubmit={handleCreate} />}
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
+      {error && (
+        <p className="error">{error instanceof ApiError ? error.message : "Failed to load drawings"}</p>
+      )}
+      {isLoading ? (
         <p>Loading…</p>
       ) : (
         <>
           <div className="table-toolbar">
+            <div className="table-toolbar-filters">
+              <SearchBox value={q} onChange={setQ} placeholder="Search drawing #, title, discipline…" />
+            </div>
             <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th key={col.key}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {drawings.map((d) => (
-                  <tr key={d.id}>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(d)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {drawings.length === 0 && (
-                  <tr>
-                    <td colSpan={visibleColumns.length}>No drawings yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            visibleColumns={visibleColumns}
+            rows={rows}
+            rowKey={(d) => d.id}
+            sort={sort}
+            order={order}
+            onSortChange={(field) => setSort(field as DrawingSortField)}
+            hasMore={hasMore}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
+            emptyMessage={q ? "No drawings match your search." : "No drawings yet."}
+          />
         </>
       )}
     </div>

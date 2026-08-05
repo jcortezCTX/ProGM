@@ -1,15 +1,19 @@
-import { apiFetch } from "./client";
+import { apiFetch, buildQueryString } from "./client";
 import type {
   AddRevisionInput,
   CreateDrawingInput,
   Drawing,
   DrawingDetail,
   DrawingRevision,
+  ListParams,
+  ListResponse,
   UpdateDrawingInput,
 } from "./types";
 
-export function listDrawings(): Promise<Drawing[]> {
-  return apiFetch("/drawings");
+export type DrawingSortField = "drawing_number" | "title" | "status" | "current_revision_code";
+
+export function listDrawings(params: ListParams<DrawingSortField> = {}): Promise<ListResponse<Drawing>> {
+  return apiFetch(`/drawings${buildQueryString(params)}`);
 }
 
 export function createDrawing(input: CreateDrawingInput): Promise<Drawing> {
