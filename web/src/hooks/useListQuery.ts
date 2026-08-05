@@ -100,6 +100,7 @@ export function useListQuery<T, Sort extends string, F extends Record<string, st
     isFetchingNextPage: query.isFetchingNextPage,
     error: query.error,
     fetchNextPage: query.fetchNextPage,
+    refetch: query.refetch,
     sort,
     order,
     setSort,
