@@ -340,6 +340,9 @@ model users {
   email                          String                     @unique
   display_name                   String
   role                           user_role                  @default(member)
+  // Temporary stopgap until Phase 3 (Azure AD/MSAL) — nullable because
+  // Azure AD-provisioned users never get one. See BUILD_PLAN.md working notes.
+  password_hash                  String?
   created_at                     DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                   @default(now()) @db.Timestamptz(6)
   attachments                    attachments[]
@@ -353,9 +356,23 @@ model users {
   requisitions                   requisitions[]
   schedule_event_attendees       schedule_event_attendees[]
   schedule_events                schedule_events[]
+  sessions                       sessions[]
   task_comments                  task_comments[]
   tasks_tasks_assignee_idTousers tasks[]                    @relation("tasks_assignee_idTousers")
   tasks_tasks_created_byTousers  tasks[]                    @relation("tasks_created_byTousers")
+}
+
+// Opaque bearer token: the row id itself is the token sent to the client
+// (Authorization: Bearer <id>). Revocable by design (delete the row) —
+// deliberately not a stateless JWT, so an admin can force a logout later.
+model sessions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], map: "idx_sessions_user")
 }
 
 view inventory_current_stock {

@@ -1,12 +1,23 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma.js";
+import { hashPassword } from "../src/services/authService.js";
 import { addDeliveryLineItem, createDelivery, updateDelivery } from "../src/services/deliveryService.js";
 import { createRequisition } from "../src/services/requisitionService.js";
 
+// Temporary local dev-login passwords — not real secrets, just seed data for
+// the stopgap login system (see BUILD_PLAN.md; replaced by Azure AD Phase 3).
 const DEV_USER = {
   email: "dev@opshub.local",
   display_name: "Dev User",
   role: "admin" as const,
+  password: "devpassword123",
+};
+
+const MEMBER_USER = {
+  email: "member@opshub.local",
+  display_name: "Member User",
+  role: "member" as const,
+  password: "memberpassword123",
 };
 
 const ITEMS = [
@@ -116,10 +127,28 @@ const CUSTOM_FIELD_DEFS: {
 ];
 
 async function main() {
+  const devPasswordHash = await hashPassword(DEV_USER.password);
   const user = await prisma.users.upsert({
     where: { email: DEV_USER.email },
-    update: {},
-    create: DEV_USER,
+    update: { password_hash: devPasswordHash },
+    create: {
+      email: DEV_USER.email,
+      display_name: DEV_USER.display_name,
+      role: DEV_USER.role,
+      password_hash: devPasswordHash,
+    },
+  });
+
+  const memberPasswordHash = await hashPassword(MEMBER_USER.password);
+  await prisma.users.upsert({
+    where: { email: MEMBER_USER.email },
+    update: { password_hash: memberPasswordHash },
+    create: {
+      email: MEMBER_USER.email,
+      display_name: MEMBER_USER.display_name,
+      role: MEMBER_USER.role,
+      password_hash: memberPasswordHash,
+    },
   });
 
   for (const [index, itemInput] of ITEMS.entries()) {

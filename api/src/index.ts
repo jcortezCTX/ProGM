@@ -1,21 +1,29 @@
 import "dotenv/config";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
+import { requireAuth } from "./middleware/auth.js";
+import { authRouter } from "./routes/auth.js";
 import { deliveriesRouter } from "./routes/deliveries.js";
 import { healthRouter } from "./routes/health.js";
 import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
+import { usersRouter } from "./routes/users.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use("/api", healthRouter);
-app.use("/api/inventory", inventoryRouter);
-app.use("/api/deliveries", deliveriesRouter);
-app.use("/api/requisitions", requisitionsRouter);
-app.use("/api/mechanical-log", mechanicalLogRouter);
+app.use("/api/auth", authRouter);
+
+// Everything below requires a signed-in user (temporary local login —
+// see BUILD_PLAN.md; replaced by Azure AD/MSAL in Phase 3).
+app.use("/api/inventory", requireAuth, inventoryRouter);
+app.use("/api/deliveries", requireAuth, deliveriesRouter);
+app.use("/api/requisitions", requireAuth, requisitionsRouter);
+app.use("/api/mechanical-log", requireAuth, mechanicalLogRouter);
+app.use("/api/users", usersRouter); // admin-only, enforced inside the router
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's
