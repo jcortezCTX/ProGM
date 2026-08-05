@@ -1,19 +1,4 @@
-:root {
-  --navy: #1b3a52;
-  --navy-dark: #14293a;
-  --sky: #4fc3e0;
-  --sky-dark: #2ba8c7;
-  --page-bg: #f0f1f3;
-  --card-bg: #ffffff;
-  --border: #e2e4e8;
-  --text: #1a1a1a;
-  --text-muted: #6b7280;
-  --text-heading: #8a94a3;
-  --danger-bg: #fca5a5;
-  --danger-text: #7f1d1d;
-  color-scheme: light;
-  font-family: "Segoe UI", system-ui, sans-serif;
-}
+@import "./tokens.css";
 
 * {
   box-sizing: border-box;
@@ -21,8 +6,10 @@
 
 body {
   margin: 0;
-  background: var(--page-bg);
+  font-family: var(--font-family-base);
+  font-size: 0.875rem;
   color: var(--text);
+  background: var(--page-bg);
 }
 
 .app-shell {

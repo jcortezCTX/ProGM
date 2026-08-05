@@ -1,0 +1,67 @@
+/* ==========================================================================
+   WorkLoad brand tokens — drop-in :root for Ops Hub (ProGM)
+   Source: WorkLoad v1.2 admin template (xhtml/css/style.css)
+   Replaces the legacy GarneyOne navy/sky palette.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+:root {
+  /* Brand */
+  --primary: #00A15D;          /* WorkLoad green */
+  --primary-light: #00d47a;
+  --primary-hover: #006e40;
+  --primary-dark: #006e40;
+  --secondary: #FF5E4B;        /* coral — secondary actions/accents */
+
+  /* Primary alpha ramp (tints for hovers, active nav, soft backgrounds) */
+  --rgba-primary-1: rgba(0, 161, 93, 0.1);
+  --rgba-primary-2: rgba(0, 161, 93, 0.2);
+  --rgba-primary-3: rgba(0, 161, 93, 0.3);
+  --rgba-primary-5: rgba(0, 161, 93, 0.5);
+
+  /* Semantic */
+  --success: #09BD3C;
+  --info:    #D653C1;
+  --warning: #FFCF6D;
+  --danger:  #FC2E53;
+
+  /* Surfaces */
+  --page-bg: #F8F8F8;
+  --card-bg: #ffffff;
+  --headerbg: #FFFFFF;         /* header is WHITE in WorkLoad, not navy */
+  --sidebar-bg: #FFFFFF;       /* sidebar is WHITE */
+  --border: rgba(0, 0, 0, 0.125);
+
+  /* Text */
+  --text: #393939;             /* body */
+  --title: #000000;            /* headings */
+  --text-muted: #89879f;
+
+  /* Typography */
+  --font-family-base: "Roboto", sans-serif;
+  --font-family-title: "Roboto", sans-serif;
+  --font-size-base: 0.875rem;  /* 14px body */
+
+  /* Shape & elevation — the WorkLoad look is soft and rounded */
+  --radius: 1.25rem;           /* 20px — cards, buttons, badges, inputs */
+  --radius-sm: 0.625rem;       /* 10px — small controls, table cells */
+  --card-shadow: 0 0.3125rem 0.3125rem 0 rgba(82, 63, 105, 0.05);
+
+  /* Spacing */
+  --card-padding: 1.875rem;    /* 30px card body */
+  --card-gap: 1.875rem;        /* 30px between cards */
+
+  /* Legacy aliases (old GarneyOne vars) — mapped so nothing breaks.
+     Remove once index.css no longer references them. */
+  --navy: #FFFFFF;             /* old navy header -> white */
+  --navy-dark: #006e40;
+  --sky: #00A15D;              /* old sky accent -> primary green */
+  --sky-dark: #006e40;
+  --danger-bg: rgba(252, 46, 83, 0.12);
+  --danger-text: #FC2E53;
+  --text-heading: #89879f;
+
+  color-scheme: light;
+  font-family: var(--font-family-base);
+}
