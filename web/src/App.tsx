@@ -8,6 +8,8 @@ import { RequisitionsListPage } from "./pages/RequisitionsListPage";
 import { RequisitionDetailPage } from "./pages/RequisitionDetailPage";
 import { MechanicalLogListPage } from "./pages/MechanicalLogListPage";
 import { MechanicalLogDetailPage } from "./pages/MechanicalLogDetailPage";
+import { DrawingsListPage } from "./pages/DrawingsListPage";
+import { DrawingDetailPage } from "./pages/DrawingDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
@@ -27,6 +29,8 @@ function App() {
           <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
           <Route path="/mechanical-log" element={<MechanicalLogListPage />} />
           <Route path="/mechanical-log/:id" element={<MechanicalLogDetailPage />} />
+          <Route path="/drawings" element={<DrawingsListPage />} />
+          <Route path="/drawings/:id" element={<DrawingDetailPage />} />
           <Route element={<RequireRole role="admin" />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>

@@ -18,7 +18,13 @@ export const attachmentsRouter = Router();
 // attachments table in db/schema.sql - only inventory_item is wired up on
 // the frontend so far.
 const ENTITY_TYPES = ["inventory_item", "delivery", "drawing_revision", "log_entry"] as const;
-const ACCEPTED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
+const ACCEPTED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
 
 const upload = multer({
   storage: multer.memoryStorage(),

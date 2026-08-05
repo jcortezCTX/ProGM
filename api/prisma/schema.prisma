@@ -117,6 +117,7 @@ model drawing_revisions {
   drawing_id                                               String     @db.Uuid
   revision_code                                            String
   notes                                                    String?
+  external_link                                            String?
   created_by                                               String?    @db.Uuid
   created_at                                               DateTime   @default(now()) @db.Timestamptz(6)
   users                                                    users?     @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -131,11 +132,14 @@ model drawings {
   id                                                                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   drawing_number                                                    String              @unique
   title                                                             String
+  discipline                                                        String?
+  drawing_type                                                      String?
+  area                                                              String?
   status                                                            drawing_status      @default(draft)
   current_revision_id                                               String?             @db.Uuid
   created_by                                                        String?             @db.Uuid
   created_at                                                        DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at                                                        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                                                        DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
   drawing_revisions_drawing_revisions_drawing_idTodrawings          drawing_revisions[] @relation("drawing_revisions_drawing_idTodrawings")
   users                                                             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   drawing_revisions_drawings_current_revision_idTodrawing_revisions drawing_revisions?  @relation("drawings_current_revision_idTodrawing_revisions", fields: [current_revision_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drawings_current_revision")
@@ -218,44 +222,44 @@ model inventory_transactions {
 // Deliberately NOT wired into inventory_transactions - unlike the Delivery
 // Log, mechanical release tracking here is independent of warehouse stock.
 model mechanical_log_items {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  release                  String?
-  supplier                 String?
-  review                   String?
-  tag_number               String?
-  qty_released             Decimal?  @db.Decimal
-  unit                     String?
-  size                     String?
-  description              String?
-  material                 String?
-  lining                   String?
-  coating                  String?
-  release_date             DateTime? @db.Date
-  due_date                 DateTime? @db.Date
-  area                     String?
-  system                   String?
-  contract_dwg             String?
-  system2                  String?
-  shop_dwg                 String?
-  delivered_qty            Decimal?  @db.Decimal
-  need_qty                 Decimal?  @db.Decimal
-  received_on              DateTime? @db.Date
-  received_by              String?
-  storage_location         String?
-  notes                    String?
-  estimate_cost            Decimal?  @db.Decimal
-  contract_unit_price      Decimal?  @db.Decimal
-  contract_extended_price  Decimal?  @db.Decimal
-  above_below              String?
-  invoice_no               String?
-  invoice_unit_price       Decimal?  @db.Decimal
-  invoice_extended_price   Decimal?  @db.Decimal
-  delta_invoice_contract   Decimal?  @db.Decimal
-  qty_invoiced_to_date     Decimal?  @db.Decimal
-  created_by               String?   @db.Uuid
-  created_at               DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
-  users                    users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  release                 String?
+  supplier                String?
+  review                  String?
+  tag_number              String?
+  qty_released            Decimal?  @db.Decimal
+  unit                    String?
+  size                    String?
+  description             String?
+  material                String?
+  lining                  String?
+  coating                 String?
+  release_date            DateTime? @db.Date
+  due_date                DateTime? @db.Date
+  area                    String?
+  system                  String?
+  contract_dwg            String?
+  system2                 String?
+  shop_dwg                String?
+  delivered_qty           Decimal?  @db.Decimal
+  need_qty                Decimal?  @db.Decimal
+  received_on             DateTime? @db.Date
+  received_by             String?
+  storage_location        String?
+  notes                   String?
+  estimate_cost           Decimal?  @db.Decimal
+  contract_unit_price     Decimal?  @db.Decimal
+  contract_extended_price Decimal?  @db.Decimal
+  above_below             String?
+  invoice_no              String?
+  invoice_unit_price      Decimal?  @db.Decimal
+  invoice_extended_price  Decimal?  @db.Decimal
+  delta_invoice_contract  Decimal?  @db.Decimal
+  qty_invoiced_to_date    Decimal?  @db.Decimal
+  created_by              String?   @db.Uuid
+  created_at              DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  users                   users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([tag_number], map: "idx_mechanical_log_items_tag_number")
 }

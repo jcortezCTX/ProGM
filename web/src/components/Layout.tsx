@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-const PROJECT_LOG_PLACEHOLDERS = ["Drawing Log", "Custom Log"];
+const PROJECT_LOG_PLACEHOLDERS = ["Custom Log"];
 const FUTURE_MODULES = ["Tasks", "Scheduling"];
 
 function initials(name: string): string {
@@ -53,6 +53,9 @@ export function Layout() {
               </NavLink>
               <NavLink to="/mechanical-log" className={({ isActive }) => (isActive ? "active" : "")}>
                 Mechanical Log
+              </NavLink>
+              <NavLink to="/drawings" className={({ isActive }) => (isActive ? "active" : "")}>
+                Drawing Log
               </NavLink>
               {PROJECT_LOG_PLACEHOLDERS.map((name) => (
                 <span key={name} className="tab-placeholder" title="Coming soon">

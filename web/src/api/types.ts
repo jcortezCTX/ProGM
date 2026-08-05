@@ -291,6 +291,76 @@ export interface AddDeliveryLineItemInput {
   location?: string;
 }
 
+export type DrawingStatus = "draft" | "in_review" | "approved" | "superseded";
+
+// current_revision_id is a convenience pointer only (CLAUDE.md rule 2) -
+// drawing_revisions rows are append-only, never edited or deleted, so the
+// full history in DrawingDetail.revisions is the source of truth.
+export interface Drawing {
+  id: string;
+  drawing_number: string;
+  title: string;
+  discipline: string | null;
+  drawing_type: string | null;
+  area: string | null;
+  status: DrawingStatus;
+  current_revision_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  current_revision_code: string | null;
+  revision_count: number;
+}
+
+export interface DrawingRevision {
+  id: string;
+  drawing_id: string;
+  revision_code: string;
+  notes: string | null;
+  external_link: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface DrawingDetail {
+  id: string;
+  drawing_number: string;
+  title: string;
+  discipline: string | null;
+  drawing_type: string | null;
+  area: string | null;
+  status: DrawingStatus;
+  current_revision_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  revisions: DrawingRevision[];
+}
+
+export interface CreateDrawingInput {
+  drawing_number: string;
+  title: string;
+  discipline?: string;
+  drawing_type?: string;
+  area?: string;
+  status?: DrawingStatus;
+}
+
+// All fields optional - PATCH semantics.
+export interface UpdateDrawingInput {
+  title?: string;
+  discipline?: string | null;
+  drawing_type?: string | null;
+  area?: string | null;
+  status?: DrawingStatus;
+}
+
+export interface AddRevisionInput {
+  revision_code: string;
+  notes?: string;
+  external_link?: string;
+}
+
 // Polymorphic - one table for every entity type (see db/schema.sql).
 // storage_key/graph_drive_id/graph_item_id are backend-storage internals,
 // never used directly by the frontend (use attachmentFileUrl() instead).

@@ -988,3 +988,157 @@ button:disabled {
 .column-picker-item input:disabled {
   cursor: not-allowed;
 }
+
+/* Generic file attachments (drawing revisions, etc - see FileAttachments.tsx) */
+
+.file-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.file-list-item a {
+  color: var(--sky-dark);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.file-list-item a:hover {
+  text-decoration: underline;
+}
+
+.file-list-item .muted {
+  flex-shrink: 0;
+}
+
+.file-list-remove {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--page-bg);
+  color: var(--text-muted);
+  line-height: 1;
+  font-size: 0.8rem;
+}
+
+.file-list-remove:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.file-attachments-add {
+  display: inline-block;
+  align-self: flex-start;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--sky-dark);
+  font-weight: 600;
+}
+
+.file-attachments-add:hover {
+  text-decoration: underline;
+}
+
+.file-attachments-add input {
+  display: none;
+}
+
+/* Drawing Log */
+
+.revision-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.revision-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--card-bg);
+}
+
+.revision-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.revision-card-code {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.revision-card-date {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.revision-card-notes {
+  font-size: 0.88rem;
+  margin: 0 0 0.6rem;
+}
+
+.revision-card-link {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+  color: var(--sky-dark);
+  overflow-wrap: anywhere;
+}
+
+.badge-current {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.badge-superseded {
+  background: var(--page-bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.badge-status-draft {
+  background: var(--page-bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.badge-status-in_review {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde68a;
+}
+
+.badge-status-approved {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.badge-status-superseded {
+  background: var(--page-bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
