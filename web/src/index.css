@@ -309,12 +309,21 @@ tr.low-stock {
 }
 
 .card input,
-.card select {
-  padding: 0.5rem;
+.card select,
+.card textarea {
+  padding: 0.55rem 1rem;
   font-size: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: 1px solid #e6e6e6;
+  border-radius: var(--radius-sm);
   font-family: inherit;
+}
+
+.card input:focus,
+.card select:focus,
+.card textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.25rem rgba(0, 161, 93, 0.15);
+  outline: 0;
 }
 
 button {
@@ -348,7 +357,10 @@ button:disabled {
 }
 
 .error {
-  color: var(--danger-text);
+  color: var(--danger);
+  background: rgba(252, 46, 83, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem;
 }
 
 .muted {
@@ -587,11 +599,6 @@ button:disabled {
 }
 
 .card textarea {
-  padding: 0.5rem;
-  font-size: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-family: inherit;
   resize: vertical;
 }
 
@@ -840,11 +847,7 @@ button:disabled {
 
 .line-item-row input,
 .line-item-row select {
-  padding: 0.5rem;
   font-size: 0.95rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-family: inherit;
 }
 
 .card.card-wide {
