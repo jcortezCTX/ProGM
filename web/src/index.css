@@ -924,6 +924,14 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.filter-bar select {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
 .table-scroll {
   width: 100%;
   overflow-x: auto;
