@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { buildListQuerySchema } from "./listQuery.js";
+
+export const mechanicalLogListQuerySchema = buildListQuerySchema([
+  "tag_number",
+  "due_date",
+  "created_at",
+] as const);
 
 const decimal = z.union([z.number(), z.string()]).nullable().optional();
 const text = z.string().min(1).nullable().optional();

@@ -1,8 +1,12 @@
-import { apiFetch } from "./client";
-import type { MechanicalLogItem, MechanicalLogItemInput } from "./types";
+import { apiFetch, buildQueryString } from "./client";
+import type { ListParams, ListResponse, MechanicalLogItem, MechanicalLogItemInput } from "./types";
 
-export function listMechanicalLogItems(): Promise<MechanicalLogItem[]> {
-  return apiFetch("/mechanical-log");
+export type MechanicalLogSortField = "tag_number" | "due_date" | "created_at";
+
+export function listMechanicalLogItems(
+  params: ListParams<MechanicalLogSortField> = {},
+): Promise<ListResponse<MechanicalLogItem>> {
+  return apiFetch(`/mechanical-log${buildQueryString(params)}`);
 }
 
 export function getMechanicalLogItem(id: string): Promise<MechanicalLogItem> {

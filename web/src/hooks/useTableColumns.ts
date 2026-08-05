@@ -8,6 +8,10 @@ export interface ColumnDef<T> {
   // start with a handful of "extra" columns hidden so the default view
   // matches what the page looked like before customization existed.
   defaultVisible?: boolean;
+  // Server-side sort field this column corresponds to, if any. Omitted for
+  // columns that aren't sortable (e.g. derived/aggregate values) - DataTable
+  // renders those headers as plain, non-interactive text.
+  sortField?: string;
 }
 
 const STORAGE_PREFIX = "opshub.table-columns.";
