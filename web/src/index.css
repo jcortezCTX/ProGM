@@ -1209,3 +1209,162 @@ button:disabled {
   color: var(--text-muted);
   border-color: var(--border);
 }
+
+/* Concrete Log */
+
+.concrete-subnav {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.1rem;
+}
+
+.concrete-subnav a {
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px 6px 0 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.concrete-subnav a:hover {
+  background: var(--page-bg);
+}
+
+.concrete-subnav a.active {
+  color: var(--navy);
+  background: var(--card-bg);
+  box-shadow: inset 0 -2px 0 var(--sky);
+}
+
+.badge-overdue {
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde68a;
+}
+
+.badge-result-pass {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  text-transform: uppercase;
+}
+
+.badge-result-fail {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-bg);
+  text-transform: uppercase;
+}
+
+tr.overdue {
+  background: #fffbeb;
+}
+
+.checkbox-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.checkbox-filter input {
+  width: auto;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.inline-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.weekly-report h2 {
+  margin-top: 0;
+}
+
+/* Simple monthly-yards bar chart (Concrete Log dashboard) */
+
+.chart-wrap {
+  width: 100%;
+}
+
+.bar-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart-baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.chart-bar {
+  fill: var(--sky);
+}
+
+.chart-bar-hover {
+  fill: var(--sky-dark);
+}
+
+.chart-axis-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.chart-value-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart-empty {
+  color: var(--text-muted);
+}
+
+@media print {
+  .print-hide,
+  .app-header,
+  .app-sidebar {
+    display: none !important;
+  }
+}

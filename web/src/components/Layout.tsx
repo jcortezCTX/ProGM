@@ -57,6 +57,9 @@ export function Layout() {
               <NavLink to="/drawings" className={({ isActive }) => (isActive ? "active" : "")}>
                 Drawing Log
               </NavLink>
+              <NavLink to="/concrete" className={({ isActive }) => (isActive ? "active" : "")}>
+                Concrete Log
+              </NavLink>
               {PROJECT_LOG_PLACEHOLDERS.map((name) => (
                 <span key={name} className="tab-placeholder" title="Coming soon">
                   {name}

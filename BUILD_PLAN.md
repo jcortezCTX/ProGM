@@ -372,3 +372,29 @@ things deferred. Keep it short and factual.
   Pushed to `origin/main`. If your worktree is still behind, `git pull`
   before continuing — your branch's `schema.prisma`/`index.ts` will conflict
   with what's already on `main` otherwise. Full details a few entries up.
+- 2026-08-05: Concrete Log built end-to-end per `CONCRETE_LOG_SPEC.md` (direct
+  request, like Mechanical Log — not a numbered phase). `concrete_settings`,
+  `concrete_mix_designs`, `concrete_structures`, `concrete_pours`,
+  `concrete_samples`, `pump_truck_rentals`, `concrete_credits`; full REST API
+  + Zod validation; 18 new tests covering pass/fail boundary, partial-sample
+  averages, overdue thresholds (via `vi.useFakeTimers`), weekly-report window
+  edges, $/CY null/zero (96 total passing); `importConcreteLog.ts` (xlsx
+  parser, dev dependency) loaded the real AWWTF workbook — 65 pours, 75
+  samples, 19 mix designs, both sheets' "Total CY Placed" reconciled exactly.
+  UI: Dashboard (stat tiles, a hand-rolled SVG bar chart — no charting library
+  added, single series didn't warrant one), Pours list/detail with inline
+  samples, Weekly Report + server-side PDF (pdfkit, the one approved
+  dependency — renders directly from data rather than an HTML+headless-
+  browser pipeline), Pump Truck/Credits/Mix Designs/Structures+Settings.
+  Migration was hand-trimmed from `prisma migrate diff` output, which also
+  picked up unrelated in-progress Task Management schema drift from another
+  concurrent session — only the concrete_* statements were applied. tsc,
+  vitest, and a real-browser Playwright pass (screenshots + a full
+  create-pour-add-sample-verify-Pass-chip flow, zero console errors) all
+  clean; test fixtures cleaned from the shared dev DB afterward.
+  **Note for whoever picks up the branding overhaul**: at the time this was
+  built, `branding/` (WorkLoad theme, `tokens.css`) existed only as
+  uncommitted work in another concurrent session's checkout — Concrete Log's
+  UI was built against the current shipped `index.css` (navy/sky) for
+  consistency with every other live module, and will need the same restyle
+  pass as the rest of the app once that migration actually lands.

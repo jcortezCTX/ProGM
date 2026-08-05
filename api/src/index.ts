@@ -4,11 +4,17 @@ import express, { type ErrorRequestHandler } from "express";
 import { requireAuth } from "./middleware/auth.js";
 import { attachmentsRouter } from "./routes/attachments.js";
 import { authRouter } from "./routes/auth.js";
+import { concreteCreditsRouter } from "./routes/concreteCredits.js";
+import { concreteMixDesignsRouter } from "./routes/concreteMixDesigns.js";
+import { concreteDashboardRouter, concretePoursRouter, concreteSamplesRouter } from "./routes/concretePours.js";
+import { concreteSettingsRouter } from "./routes/concreteSettings.js";
+import { concreteStructuresRouter } from "./routes/concreteStructures.js";
 import { deliveriesRouter } from "./routes/deliveries.js";
 import { drawingsRouter } from "./routes/drawings.js";
 import { healthRouter } from "./routes/health.js";
 import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
+import { pumpTruckRentalsRouter } from "./routes/pumpTruckRentals.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
 import { usersRouter } from "./routes/users.js";
 
@@ -25,6 +31,14 @@ app.use("/api/inventory", requireAuth, inventoryRouter);
 app.use("/api/deliveries", requireAuth, deliveriesRouter);
 app.use("/api/requisitions", requireAuth, requisitionsRouter);
 app.use("/api/mechanical-log", requireAuth, mechanicalLogRouter);
+app.use("/api/concrete/pours", requireAuth, concretePoursRouter);
+app.use("/api/concrete/samples", requireAuth, concreteSamplesRouter);
+app.use("/api/concrete/mix-designs", requireAuth, concreteMixDesignsRouter);
+app.use("/api/concrete/structures", requireAuth, concreteStructuresRouter);
+app.use("/api/concrete/pump-rentals", requireAuth, pumpTruckRentalsRouter);
+app.use("/api/concrete/credits", requireAuth, concreteCreditsRouter);
+app.use("/api/concrete/settings", requireAuth, concreteSettingsRouter);
+app.use("/api/concrete", requireAuth, concreteDashboardRouter);
 app.use("/api/users", usersRouter); // admin-only, enforced inside the router
 // requireAuth applied per-route inside attachmentsRouter, not here — the
 // :id/file route is loaded via a plain <img src>, which can't carry a

@@ -10,6 +10,14 @@ import { MechanicalLogListPage } from "./pages/MechanicalLogListPage";
 import { MechanicalLogDetailPage } from "./pages/MechanicalLogDetailPage";
 import { DrawingsListPage } from "./pages/DrawingsListPage";
 import { DrawingDetailPage } from "./pages/DrawingDetailPage";
+import { ConcreteDashboardPage } from "./pages/ConcreteDashboardPage";
+import { ConcretePoursListPage } from "./pages/ConcretePoursListPage";
+import { ConcretePourDetailPage } from "./pages/ConcretePourDetailPage";
+import { ConcreteWeeklyReportPage } from "./pages/ConcreteWeeklyReportPage";
+import { ConcretePumpTruckPage } from "./pages/ConcretePumpTruckPage";
+import { ConcreteCreditsPage } from "./pages/ConcreteCreditsPage";
+import { ConcreteMixDesignsPage } from "./pages/ConcreteMixDesignsPage";
+import { ConcreteSettingsPage } from "./pages/ConcreteSettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
@@ -31,6 +39,14 @@ function App() {
           <Route path="/mechanical-log/:id" element={<MechanicalLogDetailPage />} />
           <Route path="/drawings" element={<DrawingsListPage />} />
           <Route path="/drawings/:id" element={<DrawingDetailPage />} />
+          <Route path="/concrete" element={<ConcreteDashboardPage />} />
+          <Route path="/concrete/pours" element={<ConcretePoursListPage />} />
+          <Route path="/concrete/pours/:id" element={<ConcretePourDetailPage />} />
+          <Route path="/concrete/weekly-report" element={<ConcreteWeeklyReportPage />} />
+          <Route path="/concrete/pump-truck" element={<ConcretePumpTruckPage />} />
+          <Route path="/concrete/credits" element={<ConcreteCreditsPage />} />
+          <Route path="/concrete/mix-designs" element={<ConcreteMixDesignsPage />} />
+          <Route path="/concrete/settings" element={<ConcreteSettingsPage />} />
           <Route element={<RequireRole role="admin" />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
