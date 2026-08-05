@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createRequisitionSchema, idParamSchema } from "../validation/requisitions.js";
+import { createRequisitionSchema, idParamSchema, requisitionsListQuerySchema } from "../validation/requisitions.js";
 import {
   ConflictError,
   NotFoundError,
@@ -23,9 +23,14 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-requisitionsRouter.get("/", async (_req, res) => {
+requisitionsRouter.get("/", async (req, res) => {
+  const parsed = requisitionsListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
   try {
-    res.json(await listRequisitions());
+    res.json(await listRequisitions(parsed.data));
   } catch (err) {
     handleError(res, err);
   }

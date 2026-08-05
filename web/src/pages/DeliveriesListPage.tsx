@@ -72,8 +72,10 @@ export function DeliveriesListPage() {
   });
 
   useEffect(() => {
-    listRequisitions()
-      .then(setRequisitions)
+    // Picker, not a paginated table - a large fixed limit stands in for a
+    // dedicated unbounded endpoint (see the table-enhancements plan).
+    listRequisitions({ limit: 500 })
+      .then((res) => setRequisitions(res.data))
       .catch(() => setRequisitions([]));
   }, []);
 

@@ -1,10 +1,35 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { combineWhere, decodeCursor, keysetWhere, paginate } from "../lib/listQuery.js";
 
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
 
 type DecimalInput = string | number | Prisma.Decimal;
+
+type RequisitionSortField = "requisition_number" | "supplier" | "created_at";
+
+export interface ListRequisitionsParams {
+  cursor?: string;
+  limit: number;
+  sort?: RequisitionSortField;
+  order: "asc" | "desc";
+  q?: string;
+}
+
+// Free-text search spans the fields someone would type a fragment of when
+// looking for a requisition, not every column.
+const SEARCH_FIELDS = ["requisition_number", "supplier", "notes"] as const;
+
+// supplier is nullable; requisition_number and created_at are not.
+const NULLABLE_SORT_FIELDS = new Set<RequisitionSortField>(["supplier"]);
+
+function cursorValue(row: Record<string, unknown>, sortField: RequisitionSortField): string | number | null {
+  const raw = row[sortField];
+  if (raw instanceof Date) return raw.toISOString();
+  if (typeof raw === "string" || typeof raw === "number") return raw;
+  return null;
+}
 
 export interface CreateRequisitionLineItemInput {
   inventory_item_id: string;
@@ -68,16 +93,38 @@ export async function createRequisition(input: CreateRequisitionInput) {
   }
 }
 
-export async function listRequisitions() {
-  const requisitions = await prisma.requisitions.findMany({
-    orderBy: { created_at: "desc" },
+export async function listRequisitions(params: ListRequisitionsParams) {
+  const sortField = params.sort ?? "created_at";
+  const cursor = decodeCursor(params.cursor);
+
+  const where = combineWhere(
+    keysetWhere(sortField, params.order, cursor, { nullable: NULLABLE_SORT_FIELDS.has(sortField) }),
+    params.q
+      ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
+      : {},
+  );
+
+  const rows = await prisma.requisitions.findMany({
+    where,
+    orderBy: [{ [sortField]: params.order }, { id: params.order }],
+    take: params.limit + 1,
     include: { requisition_line_items: true },
   });
 
-  const allLineItemIds = requisitions.flatMap((r) => r.requisition_line_items.map((li) => li.id));
+  const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => ({
+    v: cursorValue(row, sortField),
+    id: row.id,
+  }));
+
+  // quantity_ordered/quantity_received are computed here, over the returned
+  // page only (not the whole table) - both are derived-never-stored values,
+  // same rule as inventory stock, and not sortable/filterable in v1 (see the
+  // table-enhancements plan): correctly seeking on a JS-side reduction would
+  // need the same raw-SQL treatment as Inventory's derived stock sort.
+  const allLineItemIds = page.flatMap((r) => r.requisition_line_items.map((li) => li.id));
   const fulfillment = await fulfillmentByLineItemIds(allLineItemIds);
 
-  return requisitions.map((r) => {
+  const data = page.map((r) => {
     const quantityOrdered = r.requisition_line_items.reduce(
       (sum, li) => sum.plus(li.quantity_ordered),
       new Prisma.Decimal(0),
@@ -94,6 +141,8 @@ export async function listRequisitions() {
       quantity_received: quantityReceived,
     };
   });
+
+  return { data, hasMore, nextCursor };
 }
 
 export async function getRequisition(id: string) {
