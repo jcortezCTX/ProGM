@@ -251,24 +251,26 @@ table {
   border-collapse: collapse;
   background: var(--card-bg);
   margin-bottom: 1.5rem;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 th,
 td {
   text-align: left;
-  padding: 0.65rem 0.9rem;
-  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 th {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
+  background: none;
+}
+
+tbody tr:hover {
+  background: var(--rgba-primary-1);
 }
 
 tr.low-stock {
@@ -898,8 +900,8 @@ button:disabled {
 .table-scroll {
   width: 100%;
   overflow-x: auto;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
   margin-bottom: 1.5rem;
 }
 
@@ -927,7 +929,7 @@ button:disabled {
   overflow-y: auto;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   padding: 0.6rem 0;
 }
@@ -949,7 +951,7 @@ button:disabled {
   background: none;
   border: none;
   padding: 0;
-  color: var(--sky-dark);
+  color: var(--primary);
   font-weight: 600;
   font-size: 0.75rem;
   text-transform: none;
