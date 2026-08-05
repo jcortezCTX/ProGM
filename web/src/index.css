@@ -23,8 +23,9 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0.85rem 1.75rem;
-  background: var(--navy);
-  color: white;
+  background: var(--headerbg);
+  color: var(--text);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .app-logo {
@@ -40,8 +41,8 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: var(--sky);
-  color: var(--navy-dark);
+  background: var(--rgba-primary-2);
+  color: var(--primary);
   font-weight: 800;
   font-size: 1.1rem;
 }
@@ -50,10 +51,11 @@ body {
   font-weight: 700;
   font-size: 1.15rem;
   letter-spacing: 0.02em;
+  color: var(--title);
 }
 
 .app-logo-text .accent {
-  color: var(--sky);
+  color: var(--primary);
 }
 
 .app-user {
@@ -61,17 +63,7 @@ body {
   align-items: center;
   gap: 0.6rem;
   font-size: 0.9rem;
-  opacity: 0.95;
-}
-
-.app-user .button-secondary {
-  color: white;
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.app-user .button-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
+  color: var(--text);
 }
 
 .app-user-avatar {
@@ -81,8 +73,8 @@ body {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--sky);
-  color: var(--navy-dark);
+  background: var(--rgba-primary-2);
+  color: var(--primary);
   font-weight: 700;
   font-size: 0.75rem;
 }
@@ -95,8 +87,8 @@ body {
 .app-sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: var(--card-bg);
-  border-right: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.02);
   padding: 0.75rem 0;
   display: flex;
   flex-direction: column;
@@ -106,19 +98,25 @@ body {
 .sidebar-group-items > a,
 .tab-placeholder {
   display: block;
-  padding: 0.65rem 1.5rem;
+  padding: 0.65rem 1.25rem;
+  margin: 0.125rem 0.75rem;
   text-decoration: none;
-  color: var(--text);
+  color: var(--text-muted);
+  font-weight: 500;
   font-size: 0.92rem;
-  border-left: 3px solid transparent;
+  border-radius: 0.625rem;
+}
+
+.app-sidebar > a:hover,
+.sidebar-group-items > a:hover {
+  background: #f5f5f5;
 }
 
 .app-sidebar > a.active,
 .sidebar-group-items > a.active {
   font-weight: 600;
-  color: var(--navy);
-  background: var(--page-bg);
-  border-left-color: var(--sky);
+  color: var(--primary);
+  background: var(--rgba-primary-1);
 }
 
 .tab-placeholder {
@@ -136,14 +134,17 @@ body {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 0.65rem 1.5rem;
+  padding: 0.5rem 1.25rem;
+  margin-top: 0.5rem;
   background: none;
-  color: var(--text);
+  color: var(--text-muted);
   border: none;
   border-radius: 0;
   font-family: inherit;
-  font-size: 0.92rem;
-  font-weight: 400;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   text-align: left;
   cursor: pointer;
   list-style: none;
@@ -154,7 +155,7 @@ body {
 }
 
 .sidebar-group-toggle:hover {
-  background: var(--page-bg);
+  color: var(--text);
 }
 
 .sidebar-group-chevron {
@@ -172,7 +173,7 @@ body {
 
 .sidebar-group-items > a,
 .sidebar-group-items > .tab-placeholder {
-  padding-left: 2.5rem;
+  padding-left: 2rem;
   font-size: 0.88rem;
 }
 
