@@ -40,8 +40,8 @@ describe("inventory stock math against a real database", () => {
   it("reflects negative deltas driving stock below the reorder threshold", async () => {
     await recordTransaction({ item_id: itemId, type: "issued", quantity: 100, location: "main" });
 
-    const items = await listItems();
-    const item = items.find((i) => i.id === itemId);
+    const res = await listItems({ limit: 50, order: "asc", q: sku });
+    const item = res.data.find((i) => i.id === itemId);
     expect(item?.quantity_on_hand.toString()).toBe("10");
     expect(item?.low_stock).toBe(true);
   });

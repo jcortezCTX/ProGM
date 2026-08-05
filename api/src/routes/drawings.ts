@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { addRevisionSchema, createDrawingSchema, idParamSchema, updateDrawingSchema } from "../validation/drawings.js";
+import {
+  addRevisionSchema,
+  createDrawingSchema,
+  drawingsListQuerySchema,
+  idParamSchema,
+  updateDrawingSchema,
+} from "../validation/drawings.js";
 import {
   ConflictError,
   NotFoundError,
@@ -25,9 +31,14 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-drawingsRouter.get("/", async (_req, res) => {
+drawingsRouter.get("/", async (req, res) => {
+  const parsed = drawingsListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
   try {
-    res.json(await listDrawings());
+    res.json(await listDrawings(parsed.data));
   } catch (err) {
     handleError(res, err);
   }

@@ -1,7 +1,15 @@
 import { z } from "zod";
+import { buildListQuerySchema } from "./listQuery.js";
 
 const nullableText = z.string().min(1).nullable().optional();
 const statusEnum = z.enum(["draft", "in_review", "approved", "superseded"]);
+
+export const drawingsListQuerySchema = buildListQuerySchema([
+  "drawing_number",
+  "title",
+  "status",
+  "current_revision_code",
+] as const);
 
 export const createDrawingSchema = z.object({
   drawing_number: z.string().min(1),

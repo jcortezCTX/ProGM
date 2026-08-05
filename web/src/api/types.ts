@@ -1,3 +1,20 @@
+// Shared envelope for every cursor-paginated list endpoint.
+export interface ListResponse<T> {
+  data: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+// Shared query params every list endpoint accepts; module-specific extra
+// filters are added via an intersection type at the call site.
+export interface ListParams<Sort extends string = string> {
+  cursor?: string;
+  limit?: number;
+  sort?: Sort;
+  order?: "asc" | "desc";
+  q?: string;
+}
+
 // Temporary local login (see BUILD_PLAN.md) — replaced by Azure AD in Phase 3.
 export type UserRole = "admin" | "manager" | "member";
 

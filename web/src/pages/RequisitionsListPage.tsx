@@ -1,10 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { createRequisition, listRequisitions } from "../api/requisitions";
+import { createRequisition, listRequisitions, type RequisitionSortField } from "../api/requisitions";
 import { listItems } from "../api/inventory";
 import { ApiError } from "../api/client";
 import { ColumnPicker } from "../components/ColumnPicker";
+import { DataTable } from "../components/DataTable";
 import { FulfillmentBar } from "../components/FulfillmentBar";
+import { SearchBox } from "../components/SearchBox";
+import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { CreateRequisitionLineItemInput, InventoryItem, Requisition } from "../api/types";
 
@@ -12,9 +15,14 @@ const COLUMNS: ColumnDef<Requisition>[] = [
   {
     key: "requisition_number",
     label: "Requisition #",
+    sortField: "requisition_number",
     render: (req) => <Link to={`/requisitions/${req.id}`}>{req.requisition_number}</Link>,
   },
-  { key: "supplier", label: "Supplier", render: (req) => req.supplier ?? "—" },
+  { key: "supplier", label: "Supplier", sortField: "supplier", render: (req) => req.supplier ?? "—" },
+  // Not sortable: line_item_count/quantity_ordered/quantity_received are
+  // derived (a count plus a JS-side reduction over fulfillment), not plain
+  // columns - seeking on them would need the same raw-SQL treatment as
+  // Inventory's derived stock, deferred until actually needed.
   { key: "line_item_count", label: "Line items", render: (req) => req.line_item_count },
   {
     key: "fulfillment",
@@ -27,6 +35,7 @@ const COLUMNS: ColumnDef<Requisition>[] = [
   {
     key: "created_at",
     label: "Created",
+    sortField: "created_at",
     render: (req) => new Date(req.created_at).toLocaleDateString(),
     defaultVisible: false,
   },
@@ -43,29 +52,34 @@ function emptyRow(): LineItemRow {
 }
 
 export function RequisitionsListPage() {
-  const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("requisitions", COLUMNS);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      setRequisitions(await listRequisitions());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load requisitions");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    rows,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    refetch,
+    sort,
+    order,
+    setSort,
+    q,
+    setQ,
+  } = useListQuery<Requisition, RequisitionSortField>({
+    queryKeyBase: "requisitions",
+    fetchPage: listRequisitions,
+    defaultSort: "created_at",
+    defaultOrder: "desc",
+  });
 
   useEffect(() => {
-    refresh();
-    listItems()
-      .then(setItems)
+    // Picker, not a paginated table - a large fixed limit stands in for a
+    // dedicated unbounded endpoint (see the table-enhancements plan).
+    listItems({ limit: 500 })
+      .then((res) => setItems(res.data))
       .catch(() => setItems([]));
   }, []);
 
@@ -82,7 +96,7 @@ export function RequisitionsListPage() {
       line_items: input.line_items.length > 0 ? input.line_items : undefined,
     });
     setShowForm(false);
-    await refresh();
+    await refetch();
   }
 
   return (
@@ -96,39 +110,31 @@ export function RequisitionsListPage() {
 
       {showForm && <AddRequisitionForm items={items} onSubmit={handleCreate} />}
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
+      {error && (
+        <p className="error">{error instanceof ApiError ? error.message : "Failed to load requisitions"}</p>
+      )}
+      {isLoading ? (
         <p>Loading…</p>
       ) : (
         <>
           <div className="table-toolbar">
+            <div className="table-toolbar-filters">
+              <SearchBox value={q} onChange={setQ} placeholder="Search requisition #, supplier, notes…" />
+            </div>
             <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th key={col.key}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {requisitions.map((req) => (
-                  <tr key={req.id}>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(req)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {requisitions.length === 0 && (
-                  <tr>
-                    <td colSpan={visibleColumns.length}>No requisitions yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            visibleColumns={visibleColumns}
+            rows={rows}
+            rowKey={(req) => req.id}
+            sort={sort}
+            order={order}
+            onSortChange={(field) => setSort(field as RequisitionSortField)}
+            hasMore={hasMore}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
+            emptyMessage={q ? "No requisitions match your search." : "No requisitions yet."}
+          />
         </>
       )}
     </div>

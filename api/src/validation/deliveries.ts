@@ -1,6 +1,12 @@
 import { z } from "zod";
+import { buildListQuerySchema } from "./listQuery.js";
 
 const decimalString = z.union([z.number(), z.string()]).transform((v) => String(v));
+
+export const deliveriesListQuerySchema = buildListQuerySchema(
+  ["report_number", "received_date", "status", "requisition_number"] as const,
+  { status: z.enum(["open", "closed"]).optional() },
+);
 
 export const createDeliverySchema = z.object({
   requisition_id: z.string().uuid().optional(),

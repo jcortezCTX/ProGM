@@ -1,6 +1,13 @@
 import { z } from "zod";
+import { buildListQuerySchema } from "./listQuery.js";
 
 const decimalString = z.union([z.number(), z.string()]).transform((v) => String(v));
+
+export const requisitionsListQuerySchema = buildListQuerySchema([
+  "requisition_number",
+  "supplier",
+  "created_at",
+] as const);
 
 export const createRequisitionLineItemSchema = z.object({
   inventory_item_id: z.string().uuid(),

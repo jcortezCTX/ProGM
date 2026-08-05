@@ -1,8 +1,14 @@
 import { z } from "zod";
+import { buildListQuerySchema } from "./listQuery.js";
 
 const decimalString = z.union([z.number(), z.string()]).transform((v) => String(v));
 const customFields = z.record(z.string(), z.unknown());
 const tags = z.array(z.string().min(1));
+
+export const itemsListQuerySchema = buildListQuerySchema(["name", "sku", "price", "quantity_on_hand"] as const, {
+  tag: z.string().min(1).optional(),
+  low_stock: z.enum(["true", "false"]).optional(),
+});
 
 export const createItemSchema = z.object({
   sku: z.string().min(1),

@@ -1,15 +1,28 @@
-import { apiFetch } from "./client";
+import { apiFetch, buildQueryString } from "./client";
 import type {
   AddDeliveryLineItemInput,
   CreateDeliveryInput,
   Delivery,
   DeliveryDetail,
   DeliveryLineItem,
+  DeliveryStatus,
+  ListResponse,
   UpdateDeliveryInput,
 } from "./types";
 
-export function listDeliveries(): Promise<Delivery[]> {
-  return apiFetch("/deliveries");
+export type DeliverySortField = "report_number" | "received_date" | "status" | "requisition_number";
+
+export interface ListDeliveriesParams {
+  cursor?: string;
+  limit?: number;
+  sort?: DeliverySortField;
+  order?: "asc" | "desc";
+  q?: string;
+  status?: DeliveryStatus;
+}
+
+export function listDeliveries(params: ListDeliveriesParams = {}): Promise<ListResponse<Delivery>> {
+  return apiFetch(`/deliveries${buildQueryString(params)}`);
 }
 
 export function createDelivery(input: CreateDeliveryInput): Promise<Delivery> {
