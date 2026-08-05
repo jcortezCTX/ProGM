@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import { attachmentsRouter } from "./routes/attachments.js";
 import { deliveriesRouter } from "./routes/deliveries.js";
+import { drawingsRouter } from "./routes/drawings.js";
 import { healthRouter } from "./routes/health.js";
 import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
@@ -18,6 +19,7 @@ app.use("/api/deliveries", deliveriesRouter);
 app.use("/api/requisitions", requisitionsRouter);
 app.use("/api/mechanical-log", mechanicalLogRouter);
 app.use("/api/attachments", attachmentsRouter);
+app.use("/api/drawings", drawingsRouter);
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's

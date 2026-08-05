@@ -113,9 +113,9 @@ transactions, not a separate stock mechanism. Modeled on a real paper form,
 
 ## Phase 5 — Drawing Log
 
-- [ ] Drawing CRUD + revision endpoints (revisions append-only)
-- [ ] Revision history UI, clearly showing current vs superseded
-- [ ] Status workflow (draft → in_review → approved → superseded)
+- [x] Drawing CRUD + revision endpoints (revisions append-only)
+- [x] Revision history UI, clearly showing current vs superseded
+- [x] Status workflow (draft → in_review → approved → superseded)
 
 ---
 
@@ -308,3 +308,33 @@ things deferred. Keep it short and factual.
     Task or Scheduling (Phase 6), which don't exist yet.
   - Admin page: manage user role assignment and see which roles can access
     which existing pages/modules.
+- 2026-08-04: **found while starting Phase 5**: the live dev DB already has a
+  `sessions` table and `users.password_hash` column that aren't in any
+  branch's `schema.prisma` yet — i.e. someone/some session already applied
+  DB changes for the login work described above, ahead of the "queued for
+  after Phase 5" plan and without a matching Prisma migration in git. Left
+  entirely alone (did not touch, did not drop, did not model in
+  `schema.prisma`) — generated the Drawing Log migration by hand rather than
+  from a full `prisma migrate diff`, specifically because that diff wanted to
+  drop both. Whoever picks up the login work should reconcile this (pull the
+  real column/table into a proper migration) before it drifts further.
+- 2026-08-04: Phase 5 (Drawing Log) done - backend (CRUD + append-only
+  `POST /:id/revisions`, current_revision_id updated atomically with the
+  revision insert), list + detail UI, curl- and browser-verified. Extended
+  `drawings` with `discipline`/`drawing_type`/`area` and `drawing_revisions`
+  with `external_link` (a per-revision link to wherever the file actually
+  lives - Google Drive/Wasabi/etc - since revisions are append-only, each
+  revision gets its own link rather than one mutable link on `drawings`).
+  Deliberately did NOT mirror `logs_samples/Drawing Release Log.csv` column
+  for column the way the Mechanical Log did - that CSV is very sparse
+  (~65 of 262 rows have most fields at all, revision/status columns are
+  <3% populated) and several columns (Project/Sub-Project) map onto the
+  BRSLS/AWWTF contract split already ruled out as dedicated schema. Also
+  built a non-image-specific `FileAttachments` component (filename/size list,
+  not a thumbnail grid) reusing the same `/api/attachments` backend as the
+  inventory photo uploader, and widened its accepted mime types to include
+  `application/pdf`; attached per-revision, not per-drawing, for the same
+  append-only reasoning as the link field. Revision content itself
+  (code/notes/link) is not editable after creation, but attachments on a
+  revision can still be added/removed freely - that's supplementary, not the
+  append-only record itself.

@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const PROJECT_LOG_PLACEHOLDERS = ["Drawing Log", "Custom Log"];
+const PROJECT_LOG_PLACEHOLDERS = ["Custom Log"];
 const FUTURE_MODULES = ["Tasks", "Scheduling"];
 
 // Phase 3 replaces this with the signed-in Azure AD user (CLAUDE.md: no auth before then).
@@ -41,6 +41,9 @@ export function Layout() {
               </NavLink>
               <NavLink to="/mechanical-log" className={({ isActive }) => (isActive ? "active" : "")}>
                 Mechanical Log
+              </NavLink>
+              <NavLink to="/drawings" className={({ isActive }) => (isActive ? "active" : "")}>
+                Drawing Log
               </NavLink>
               {PROJECT_LOG_PLACEHOLDERS.map((name) => (
                 <span key={name} className="tab-placeholder" title="Coming soon">
