@@ -217,25 +217,33 @@ h2 {
 }
 
 .stat-tile {
-  border-radius: 8px;
-  padding: 1rem;
-  color: white;
-  background: var(--sky);
+  background: var(--card-bg);
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  padding: var(--card-padding);
 }
 
 .stat-tile.alert {
-  background: var(--navy);
+  background: #fff;
+}
+
+.stat-tile.alert .stat-value {
+  color: var(--danger);
 }
 
 .stat-tile .stat-value {
   display: block;
-  font-size: 1.8rem;
-  font-weight: 700;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--title);
 }
 
 .stat-tile .stat-label {
-  font-size: 0.8rem;
-  opacity: 0.9;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 
 table {
@@ -279,15 +287,15 @@ tr.low-stock {
 
 .card {
   background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.25rem;
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  padding: var(--card-padding);
   margin-bottom: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
   max-width: 420px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .card label {
