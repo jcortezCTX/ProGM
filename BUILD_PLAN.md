@@ -295,16 +295,41 @@ things deferred. Keep it short and factual.
 - 2026-08-04: user asked for a login page + admin permissions UI. Flagged the
   conflict with CLAUDE.md (Phase 3 is Azure AD and requires tenant details +
   explicit go-ahead; DB rule #5 says never store passwords) and asked before
-  building anything. Decisions, **not yet built** — queued for after Phase 5
-  (Drawing Log), which stays next:
-  - Login will be a **temporary local username/password dev login**, not real
-    Azure AD — this deliberately relaxes DB rule #5 ("never store passwords")
-    until Phase 3 replaces it with MSAL/Azure AD as originally planned. Needs
-    a `password_hash` column (or similar) added to `users` via a real Prisma
-    migration when built.
-  - Permission model is **3 fixed roles (admin/manager/member)**, matching
-    Phase 3's original scope — explicitly NOT a per-page/per-CRUD-action
-    matrix, and explicitly NOT pre-building permission schema for Inventory
-    Task or Scheduling (Phase 6), which don't exist yet.
-  - Admin page: manage user role assignment and see which roles can access
-    which existing pages/modules.
+  building anything. Decisions confirmed by the user, then built the same
+  day (in parallel with another session's Drawing Log work, in a separate
+  worktree — see below): temporary local username/password login (knowingly
+  relaxes DB rule #5 until Phase 3 replaces it with MSAL/Azure AD), 3 fixed
+  roles (admin/manager/member, no per-page/per-CRUD matrix, no schema
+  pre-built for Inventory Task or Scheduling). Delivered:
+  - `password_hash` (nullable) on `users`, new `sessions` table — the row id
+    doubles as an opaque bearer token; revocable by design (delete the row),
+    deliberately not a stateless JWT. Hashing uses Node's built-in
+    `crypto.scrypt`, no new dependency.
+  - `requireAuth` now guards every existing API route except `/api/health`
+    and `/api/auth/*`; `/api/users` (admin-only) supports listing users,
+    creating one, and changing a user's role.
+  - Frontend: `/login` page, `AuthContext` (token in localStorage, listens
+    for a global 401 event to bounce back to `/login`), route guards on
+    every module route, `/admin/users` UI (list + inline role dropdown +
+    create-user form), real signed-in user + logout in the header.
+  - Dev credentials seeded for local testing: `dev@opshub.local` /
+    `devpassword123` (admin), `member@opshub.local` / `memberpassword123`
+    (member) — not real secrets, local dev only.
+  - Full flow curl- and browser-verified (Playwright): login success/
+    failure, route protection, admin-only enforcement, role changes,
+    logout invalidating the token, and a member user losing the Admin nav
+    link and being redirected away from `/admin/users`.
+  - Gotcha: while working in a worktree, generated a `prisma migrate diff`
+    against the live shared dev DB and it included an unrelated
+    `DROP COLUMN` on `attachments` (`content_type`/`size_bytes`/
+    `storage_key`) that the concurrent Drawing Log session had already
+    added directly to the live DB but not yet reflected in this worktree's
+    `schema.prisma`. Hand-trimmed the migration to only the auth-related
+    changes before applying — since Postgres is one shared instance across
+    worktrees (not git-isolated like the code), always diff carefully and
+    re-check what a generated migration script actually contains before
+    running it. Also: a cleanup `pkill -f vite` after finishing killed a
+    *different* session's Vite dev server on port 5173 (own server had
+    landed on 5174 since 5173 was taken) — prefer killing dev servers by
+    PID, not by broad process-name match, when other sessions may be
+    running concurrently.
