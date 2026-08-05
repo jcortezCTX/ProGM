@@ -1,22 +1,27 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { createItem, listItems } from "../api/inventory";
+import { createItem, listItems, listTags, type InventorySortField } from "../api/inventory";
 import { ApiError } from "../api/client";
 import { ColumnPicker } from "../components/ColumnPicker";
+import { DataTable } from "../components/DataTable";
+import { SearchBox } from "../components/SearchBox";
+import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
-import type { InventoryItem } from "../api/types";
+import type { InventoryItem, InventoryTag } from "../api/types";
 
 const COLUMNS: ColumnDef<InventoryItem>[] = [
-  { key: "sku", label: "SKU", render: (item) => item.sku },
+  { key: "sku", label: "SKU", sortField: "sku", render: (item) => item.sku },
   {
     key: "name",
     label: "Name",
+    sortField: "name",
     render: (item) => <Link to={`/inventory/${item.id}`}>{item.name}</Link>,
   },
   { key: "unit", label: "Unit", render: (item) => item.unit },
   {
     key: "quantity_on_hand",
     label: "Quantity on hand",
+    sortField: "quantity_on_hand",
     render: (item) => (
       <>
         {item.quantity_on_hand}
@@ -26,34 +31,49 @@ const COLUMNS: ColumnDef<InventoryItem>[] = [
   },
   { key: "reorder_threshold", label: "Reorder threshold", render: (item) => item.reorder_threshold },
   { key: "description", label: "Description", render: (item) => item.description ?? "—", defaultVisible: false },
-  { key: "price", label: "Price", render: (item) => `$${item.price}`, defaultVisible: false },
+  { key: "price", label: "Price", sortField: "price", render: (item) => `$${item.price}`, defaultVisible: false },
   { key: "total_value", label: "Total value", render: (item) => `$${item.total_value}`, defaultVisible: false },
   { key: "barcode", label: "Barcode", render: (item) => item.barcode ?? "—", defaultVisible: false },
   { key: "tags", label: "Tags", render: (item) => item.tags.join(", ") || "—", defaultVisible: false },
 ];
 
 export function InventoryListPage() {
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [tags, setTags] = useState<InventoryTag[]>([]);
   const [showForm, setShowForm] = useState(false);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("inventory", COLUMNS);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      setItems(await listItems());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load inventory items");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    rows,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    refetch,
+    sort,
+    order,
+    setSort,
+    q,
+    setQ,
+    filters,
+    setFilter,
+  } = useListQuery<InventoryItem, InventorySortField, { tag: string; low_stock: "true" | "false" }>({
+    queryKeyBase: "inventory",
+    fetchPage: listItems,
+    defaultSort: "name",
+    filterKeys: ["tag", "low_stock"],
+  });
 
   useEffect(() => {
-    refresh();
+    listTags()
+      .then(setTags)
+      .catch(() => setTags([]));
   }, []);
+
+  // Only loaded rows are known client-side under infinite-scroll pagination
+  // - these tiles describe what's currently loaded, not the full catalog.
+  const loadedCount = rows.length;
+  const loadedUnits = rows.reduce((sum, item) => sum + Number(item.quantity_on_hand), 0);
+  const loadedLowStock = rows.filter((item) => item.low_stock).length;
 
   async function handleCreate(input: {
     sku: string;
@@ -63,7 +83,7 @@ export function InventoryListPage() {
   }) {
     await createItem(input);
     setShowForm(false);
-    await refresh();
+    await refetch();
   }
 
   return (
@@ -77,55 +97,64 @@ export function InventoryListPage() {
 
       {showForm && <AddItemForm onSubmit={handleCreate} />}
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
+      {error && (
+        <p className="error">{error instanceof ApiError ? error.message : "Failed to load inventory items"}</p>
+      )}
+      {isLoading ? (
         <p>Loading…</p>
       ) : (
         <>
           <div className="stat-tiles">
             <div className="stat-tile">
-              <span className="stat-value">{items.length}</span>
-              <span className="stat-label">Total items</span>
+              <span className="stat-value">{loadedCount}</span>
+              <span className="stat-label">Loaded items</span>
             </div>
             <div className="stat-tile">
-              <span className="stat-value">
-                {items.reduce((sum, item) => sum + Number(item.quantity_on_hand), 0)}
-              </span>
-              <span className="stat-label">Units on hand</span>
+              <span className="stat-value">{loadedUnits}</span>
+              <span className="stat-label">Units on hand (loaded)</span>
             </div>
             <div className="stat-tile alert">
-              <span className="stat-value">{items.filter((item) => item.low_stock).length}</span>
-              <span className="stat-label">Low stock</span>
+              <span className="stat-value">{loadedLowStock}</span>
+              <span className="stat-label">Low stock (loaded)</span>
             </div>
           </div>
           <div className="table-toolbar">
+            <div className="table-toolbar-filters">
+              <SearchBox value={q} onChange={setQ} placeholder="Search sku, name, description, barcode…" />
+              <div className="filter-bar">
+                <select value={filters.tag ?? ""} onChange={(e) => setFilter("tag", e.target.value || undefined)}>
+                  <option value="">All tags</option>
+                  {tags.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filters.low_stock ?? ""}
+                  onChange={(e) => setFilter("low_stock", e.target.value || undefined)}
+                >
+                  <option value="">All stock levels</option>
+                  <option value="true">Low stock only</option>
+                  <option value="false">Not low stock</option>
+                </select>
+              </div>
+            </div>
             <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th key={col.key}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className={item.low_stock ? "low-stock" : ""}>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(item)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={visibleColumns.length}>No inventory items yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            visibleColumns={visibleColumns}
+            rows={rows}
+            rowKey={(item) => item.id}
+            sort={sort}
+            order={order}
+            onSortChange={(field) => setSort(field as InventorySortField)}
+            hasMore={hasMore}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
+            emptyMessage={q || filters.tag || filters.low_stock ? "No items match your filters." : "No inventory items yet."}
+            rowClassName={(item) => (item.low_stock ? "low-stock" : undefined)}
+          />
         </>
       )}
     </div>

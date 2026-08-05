@@ -1,5 +1,6 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { combineWhere, decodeCursor, keysetWhere, paginate, type CursorPayload } from "../lib/listQuery.js";
 
 export type InventoryTransactionType = "received" | "issued" | "adjustment" | "delivered_out";
 export type InventoryCustomFieldType = "text" | "textarea" | "number" | "select" | "checkbox";
@@ -41,32 +42,227 @@ function tagNames(item: ItemWithTags): string[] {
   return item.inventory_item_tags.map((it) => it.inventory_tags.name);
 }
 
-export async function listItems() {
-  const [items, stockRows] = await Promise.all([
-    prisma.inventory_items.findMany({
-      orderBy: { name: "asc" },
-      include: { inventory_item_tags: { include: { inventory_tags: true } } },
-    }),
-    prisma.inventory_current_stock.findMany(),
-  ]);
+type InventorySortField = "name" | "sku" | "price" | "quantity_on_hand";
 
+export interface ListItemsParams {
+  cursor?: string;
+  limit: number;
+  sort?: InventorySortField;
+  order: "asc" | "desc";
+  q?: string;
+  tag?: string;
+  low_stock?: "true" | "false";
+}
+
+// Free-text search spans the fields someone would type a fragment of when
+// looking for an item, not every column.
+const SEARCH_FIELDS = ["sku", "name", "description", "barcode"] as const;
+
+// name/sku/price are all NOT NULL columns on inventory_items.
+const FLAT_SORT_FIELDS = ["name", "sku", "price"] as const;
+type FlatSortField = (typeof FLAT_SORT_FIELDS)[number];
+
+function isFlatSortField(field: InventorySortField): field is FlatSortField {
+  return (FLAT_SORT_FIELDS as readonly string[]).includes(field);
+}
+
+async function stockByItemIds(itemIds: string[]): Promise<Map<string, Prisma.Decimal>> {
+  if (itemIds.length === 0) return new Map();
+  const rows = await prisma.inventory_current_stock.findMany({ where: { item_id: { in: itemIds } } });
   const stockByItem = new Map<string, Prisma.Decimal>();
-  for (const row of stockRows) {
+  for (const row of rows) {
     if (!row.item_id) continue;
     const running = stockByItem.get(row.item_id) ?? new Prisma.Decimal(0);
     stockByItem.set(row.item_id, running.plus(row.quantity_on_hand ?? 0));
   }
+  return stockByItem;
+}
 
-  return items.map(({ inventory_item_tags: _tags, ...item }) => {
+async function tagsByItemIds(itemIds: string[]): Promise<Map<string, string[]>> {
+  if (itemIds.length === 0) return new Map();
+  const rows = await prisma.inventory_item_tags.findMany({
+    where: { item_id: { in: itemIds } },
+    include: { inventory_tags: true },
+  });
+  const tagsByItem = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = tagsByItem.get(row.item_id) ?? [];
+    list.push(row.inventory_tags.name);
+    tagsByItem.set(row.item_id, list);
+  }
+  return tagsByItem;
+}
+
+// Fast path: sort field is a plain, directly-comparable column. Stock is
+// attached afterward, batched only over the returned page's item ids
+// (bounded to `limit`, not the whole table like the pre-pagination version).
+async function listItemsFlatSort(params: ListItemsParams & { sort?: FlatSortField }) {
+  const sortField = params.sort ?? "name";
+  const cursor = decodeCursor(params.cursor);
+
+  const where = combineWhere(
+    keysetWhere(sortField, params.order, cursor),
+    params.q
+      ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
+      : {},
+    params.tag ? { inventory_item_tags: { some: { inventory_tags: { name: params.tag } } } } : {},
+  );
+
+  const rows = await prisma.inventory_items.findMany({
+    where,
+    orderBy: [{ [sortField]: params.order }, { id: params.order }],
+    take: params.limit + 1,
+  });
+
+  const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => {
+    const raw = row[sortField];
+    const v = raw instanceof Prisma.Decimal ? raw.toString() : raw;
+    return { v, id: row.id };
+  });
+
+  const pageIds = page.map((item) => item.id);
+  const [stockByItem, tagsByItem] = await Promise.all([stockByItemIds(pageIds), tagsByItemIds(pageIds)]);
+
+  const data = page.map((item) => {
     const quantityOnHand = stockByItem.get(item.id) ?? new Prisma.Decimal(0);
     return {
       ...item,
       quantity_on_hand: quantityOnHand,
       total_value: quantityOnHand.times(item.price),
       low_stock: quantityOnHand.lessThan(item.reorder_threshold),
-      tags: tagNames({ ...item, inventory_item_tags: _tags }),
+      tags: tagsByItem.get(item.id) ?? [],
     };
   });
+
+  return { data, hasMore, nextCursor };
+}
+
+// quantity_on_hand isn't a column - it's SUM(quantity) from
+// inventory_transactions via the inventory_current_stock view (CLAUDE.md:
+// stock is derived, never stored). Sorting or filtering (low_stock) on it
+// needs a raw query joining inventory_items against a per-item aggregation
+// of that existing view - still fully reusing the view's derived logic,
+// not re-deriving stock a second way. Every value interpolated below goes
+// through Prisma.sql's parameter binding, never string concatenation.
+const SORT_EXPR: Record<InventorySortField, string> = {
+  name: "ii.name",
+  sku: "ii.sku",
+  price: "ii.price",
+  quantity_on_hand: "COALESCE(stock.total, 0)",
+};
+
+// price/quantity_on_hand compare against a NUMERIC column - Postgres has no
+// `numeric > text` operator, so a cursor value bound as text (the default
+// for a JS string parameter) fails on any page past the first. name/sku
+// compare against text columns and need no cast.
+const NUMERIC_SORT_FIELDS = new Set<InventorySortField>(["price", "quantity_on_hand"]);
+
+interface RawItemRow {
+  id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  reorder_threshold: Prisma.Decimal;
+  price: Prisma.Decimal;
+  notes: string | null;
+  barcode: string | null;
+  product_link: string | null;
+  custom_fields: Prisma.JsonValue;
+  created_at: Date;
+  updated_at: Date;
+  quantity_on_hand: Prisma.Decimal;
+}
+
+function keysetClauseRaw(
+  sortExpr: string,
+  order: "asc" | "desc",
+  cursor: CursorPayload | null,
+  numeric: boolean,
+): Prisma.Sql {
+  if (!cursor) return Prisma.sql`TRUE`;
+  const cmp = order === "asc" ? Prisma.sql`>` : Prisma.sql`<`;
+  const expr = Prisma.raw(sortExpr);
+  const value = numeric ? Prisma.sql`(${cursor.v}::text)::numeric` : Prisma.sql`${cursor.v}`;
+  return Prisma.sql`(${expr} ${cmp} ${value} OR (${expr} = ${value} AND ii.id ${cmp} ${cursor.id}::uuid))`;
+}
+
+// Handles any sort field (including the flat ones) whenever a low_stock
+// filter is present, since that filter itself needs the derived stock
+// value in scope - one unified query rather than a third branch.
+async function listItemsDerivedPath(params: ListItemsParams) {
+  const sortField = params.sort ?? "name";
+  const cursor = decodeCursor(params.cursor);
+  const sortExpr = SORT_EXPR[sortField];
+  const orderDir = params.order === "asc" ? Prisma.raw("ASC") : Prisma.raw("DESC");
+
+  const searchClause = params.q
+    ? Prisma.sql`(ii.sku ILIKE ${"%" + params.q + "%"} OR ii.name ILIKE ${"%" + params.q + "%"} OR ii.description ILIKE ${"%" + params.q + "%"} OR ii.barcode ILIKE ${"%" + params.q + "%"})`
+    : Prisma.sql`TRUE`;
+
+  const tagClause = params.tag
+    ? Prisma.sql`EXISTS (SELECT 1 FROM inventory_item_tags iit JOIN inventory_tags it ON it.id = iit.tag_id WHERE iit.item_id = ii.id AND it.name = ${params.tag})`
+    : Prisma.sql`TRUE`;
+
+  const lowStockClause =
+    params.low_stock === "true"
+      ? Prisma.sql`COALESCE(stock.total, 0) < ii.reorder_threshold`
+      : params.low_stock === "false"
+        ? Prisma.sql`COALESCE(stock.total, 0) >= ii.reorder_threshold`
+        : Prisma.sql`TRUE`;
+
+  const whereClause = Prisma.join(
+    [
+      searchClause,
+      tagClause,
+      lowStockClause,
+      keysetClauseRaw(sortExpr, params.order, cursor, NUMERIC_SORT_FIELDS.has(sortField)),
+    ],
+    " AND ",
+  );
+
+  const rows = await prisma.$queryRaw<RawItemRow[]>`
+    SELECT ii.id, ii.sku, ii.name, ii.description, ii.unit, ii.reorder_threshold, ii.price,
+           ii.notes, ii.barcode, ii.product_link, ii.custom_fields, ii.created_at, ii.updated_at,
+           COALESCE(stock.total, 0) AS quantity_on_hand
+    FROM inventory_items ii
+    LEFT JOIN (
+      SELECT item_id, SUM(quantity_on_hand) AS total FROM inventory_current_stock GROUP BY item_id
+    ) stock ON stock.item_id = ii.id
+    WHERE ${whereClause}
+    ORDER BY ${Prisma.raw(sortExpr)} ${orderDir}, ii.id ${orderDir}
+    LIMIT ${params.limit + 1}
+  `;
+
+  const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => {
+    const v = NUMERIC_SORT_FIELDS.has(sortField) ? row[sortField].toString() : String(row[sortField]);
+    return { v, id: row.id };
+  });
+
+  const pageIds = page.map((item) => item.id);
+  const tagsByItem = await tagsByItemIds(pageIds);
+
+  const data = page.map((item) => {
+    const quantityOnHand = new Prisma.Decimal(item.quantity_on_hand);
+    return {
+      ...item,
+      price: new Prisma.Decimal(item.price),
+      reorder_threshold: new Prisma.Decimal(item.reorder_threshold),
+      quantity_on_hand: quantityOnHand,
+      total_value: quantityOnHand.times(item.price),
+      low_stock: quantityOnHand.lessThan(item.reorder_threshold),
+      tags: tagsByItem.get(item.id) ?? [],
+    };
+  });
+
+  return { data, hasMore, nextCursor };
+}
+
+export async function listItems(params: ListItemsParams) {
+  const needsDerivedPath = params.sort === "quantity_on_hand" || params.low_stock !== undefined;
+  if (needsDerivedPath) return listItemsDerivedPath(params);
+  const sortField = params.sort ?? "name";
+  return listItemsFlatSort({ ...params, sort: isFlatSortField(sortField) ? sortField : undefined });
 }
 
 export interface CreateItemInput {

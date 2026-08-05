@@ -4,6 +4,7 @@ import {
   createItemSchema,
   createTransactionSchema,
   idParamSchema,
+  itemsListQuerySchema,
   updateItemSchema,
 } from "../validation/inventory.js";
 import {
@@ -40,10 +41,14 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-inventoryRouter.get("/items", async (_req, res) => {
+inventoryRouter.get("/items", async (req, res) => {
+  const parsed = itemsListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
   try {
-    const items = await listItems();
-    res.json(items);
+    res.json(await listItems(parsed.data));
   } catch (err) {
     handleError(res, err);
   }
