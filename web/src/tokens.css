@@ -52,16 +52,6 @@
   --card-padding: 1.875rem;    /* 30px card body */
   --card-gap: 1.875rem;        /* 30px between cards */
 
-  /* Legacy aliases (old GarneyOne vars) — mapped so nothing breaks.
-     Remove once index.css no longer references them. */
-  --navy: #FFFFFF;             /* old navy header -> white */
-  --navy-dark: #006e40;
-  --sky: #00A15D;              /* old sky accent -> primary green */
-  --sky-dark: #006e40;
-  --danger-bg: rgba(252, 46, 83, 0.12);
-  --danger-text: #FC2E53;
-  --text-heading: #89879f;
-
   color-scheme: light;
   font-family: var(--font-family-base);
 }

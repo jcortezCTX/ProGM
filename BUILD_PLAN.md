@@ -372,3 +372,9 @@ things deferred. Keep it short and factual.
   Pushed to `origin/main`. If your worktree is still behind, `git pull`
   before continuing — your branch's `schema.prisma`/`index.ts` will conflict
   with what's already on `main` otherwise. Full details a few entries up.
+- 2026-08-05: the 2026-08-03 UI visual-language note above (navy header,
+  sky-blue accent, GarneyOne intranet reference) is superseded — the app was
+  restyled to the **WorkLoad** theme per `branding/BRANDING.md` and
+  `branding/UI-MIGRATION.md` (white header/sidebar, green `--primary` accent,
+  large-radius soft-shadow cards). New UI work should follow `BRANDING.md`,
+  not the old GarneyOne reference screenshot.
