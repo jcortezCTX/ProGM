@@ -363,3 +363,12 @@ things deferred. Keep it short and factual.
   (code/notes/link) is not editable after creation, but attachments on a
   revision can still be added/removed freely - that's supplementary, not the
   append-only record itself.
+- 2026-08-05: **note for the Drawing Log session**: the login/permissions work
+  (the `sessions` table / `users.password_hash` flagged above) is done and
+  merged into local `main`, on top of Phase 5 — merge commit `abc7e0a`,
+  resolved conflicts in this file, `App.tsx`, `index.ts`/`attachments.ts`/
+  `schema.prisma` (`/api/attachments` is now gated per-route: GET/POST/DELETE
+  require sign-in, `:id/file` stays open since it's loaded via `<img src>`).
+  Pushed to `origin/main`. If your worktree is still behind, `git pull`
+  before continuing — your branch's `schema.prisma`/`index.ts` will conflict
+  with what's already on `main` otherwise. Full details a few entries up.
