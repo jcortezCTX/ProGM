@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { idParamSchema, mechanicalLogItemSchema } from "../validation/mechanicalLog.js";
+import {
+  idParamSchema,
+  mechanicalLogItemSchema,
+  mechanicalLogListQuerySchema,
+} from "../validation/mechanicalLog.js";
 import {
   NotFoundError,
   createMechanicalLogItem,
@@ -19,9 +23,14 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-mechanicalLogRouter.get("/", async (_req, res) => {
+mechanicalLogRouter.get("/", async (req, res) => {
+  const parsed = mechanicalLogListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
   try {
-    res.json(await listMechanicalLogItems());
+    res.json(await listMechanicalLogItems(parsed.data));
   } catch (err) {
     handleError(res, err);
   }

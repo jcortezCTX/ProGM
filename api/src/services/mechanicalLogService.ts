@@ -1,6 +1,28 @@
 import { prisma } from "../lib/prisma.js";
+import { combineWhere, decodeCursor, keysetWhere, paginate } from "../lib/listQuery.js";
 
 export class NotFoundError extends Error {}
+
+type MechanicalLogSortField = "tag_number" | "due_date" | "created_at";
+
+export interface ListMechanicalLogItemsParams {
+  cursor?: string;
+  limit: number;
+  sort?: MechanicalLogSortField;
+  order: "asc" | "desc";
+  q?: string;
+}
+
+// Free-text search spans the fields someone would actually type a fragment
+// of when looking for an entry - not every column.
+const SEARCH_FIELDS = ["tag_number", "description", "supplier", "material"] as const;
+
+function cursorValue(item: Record<string, unknown>, sortField: string): string | number | null {
+  const raw = item[sortField];
+  if (raw instanceof Date) return raw.toISOString();
+  if (typeof raw === "string" || typeof raw === "number") return raw;
+  return null;
+}
 
 type DecimalInput = string | number;
 
@@ -64,10 +86,29 @@ function toWriteData(input: MechanicalLogItemInput) {
   return data;
 }
 
-export async function listMechanicalLogItems() {
-  return prisma.mechanical_log_items.findMany({
-    orderBy: [{ tag_number: "asc" }, { created_at: "asc" }],
+export async function listMechanicalLogItems(params: ListMechanicalLogItemsParams) {
+  const sortField = params.sort ?? "tag_number";
+  const cursor = decodeCursor(params.cursor);
+
+  const where = combineWhere(
+    keysetWhere(sortField, params.order, cursor),
+    params.q
+      ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
+      : {},
+  );
+
+  const rows = await prisma.mechanical_log_items.findMany({
+    where,
+    orderBy: [{ [sortField]: params.order }, { id: params.order }],
+    take: params.limit + 1,
   });
+
+  const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => ({
+    v: cursorValue(row, sortField),
+    id: row.id,
+  }));
+
+  return { data: page, hasMore, nextCursor };
 }
 
 export async function getMechanicalLogItem(id: string) {

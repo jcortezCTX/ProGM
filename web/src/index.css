@@ -894,8 +894,34 @@ button:disabled {
 
 .table-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   margin-bottom: 0.75rem;
+}
+
+.table-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 220px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .table-scroll {
@@ -914,6 +940,39 @@ button:disabled {
 .table-scroll table th,
 .table-scroll table td {
   white-space: nowrap;
+}
+
+.sortable-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sortable-header:hover {
+  color: var(--sky);
+}
+
+.sort-indicator {
+  font-size: 0.7rem;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.85rem;
+  background: var(--card-bg);
+}
+
+.load-more-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .column-picker {

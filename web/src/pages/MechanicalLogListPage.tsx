@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { listMechanicalLogItems } from "../api/mechanicalLog";
+import { listMechanicalLogItems, type MechanicalLogSortField } from "../api/mechanicalLog";
 import { ColumnPicker } from "../components/ColumnPicker";
+import { DataTable } from "../components/DataTable";
+import { SearchBox } from "../components/SearchBox";
+import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
 import type { MechanicalLogItem } from "../api/types";
 
@@ -26,6 +28,7 @@ const COLUMNS: ColumnDef<MechanicalLogItem>[] = [
   {
     key: "tag_number",
     label: "Tag Number",
+    sortField: "tag_number",
     render: (row) => <Link to={`/mechanical-log/${row.id}`}>{row.tag_number ?? "(no tag)"}</Link>,
   },
   { key: "description", label: "Description", render: (row) => text(row.description) },
@@ -34,7 +37,7 @@ const COLUMNS: ColumnDef<MechanicalLogItem>[] = [
   { key: "unit", label: "Unit", render: (row) => text(row.unit) },
   { key: "delivered_qty", label: "Delivered Qty", render: (row) => text(row.delivered_qty) },
   { key: "need_qty", label: "Need Qty", render: (row) => text(row.need_qty) },
-  { key: "due_date", label: "Due Date", render: (row) => date(row.due_date) },
+  { key: "due_date", label: "Due Date", sortField: "due_date", render: (row) => date(row.due_date) },
   { key: "storage_location", label: "Storage Location", render: (row) => text(row.storage_location) },
   { key: "review", label: "Review", render: (row) => text(row.review) },
   { key: "release", label: "Release", render: (row) => text(row.release), defaultVisible: false },
@@ -93,20 +96,30 @@ const COLUMNS: ColumnDef<MechanicalLogItem>[] = [
 ];
 
 export function MechanicalLogListPage() {
-  const [rows, setRows] = useState<MechanicalLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("mechanical-log", COLUMNS);
+  const {
+    rows,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    sort,
+    order,
+    setSort,
+    q,
+    setQ,
+  } = useListQuery<MechanicalLogItem, MechanicalLogSortField>({
+    queryKeyBase: "mechanical-log",
+    fetchPage: listMechanicalLogItems,
+    defaultSort: "tag_number",
+  });
 
-  useEffect(() => {
-    listMechanicalLogItems()
-      .then((data) => {
-        setRows(data);
-        setError(null);
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load mechanical log"))
-      .finally(() => setLoading(false));
-  }, []);
+  // Only loaded rows are known client-side under infinite-scroll pagination
+  // (the table may hold hundreds of entries) - these tiles describe what's
+  // currently loaded, not the full table, so they're labeled accordingly.
+  const loadedCount = rows.length;
+  const stillNeededLoaded = rows.filter((r) => r.need_qty !== null && Number(r.need_qty) > 0).length;
 
   return (
     <div>
@@ -117,52 +130,42 @@ export function MechanicalLogListPage() {
         </Link>
       </div>
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
+      {error && (
+        <p className="error">{error instanceof ApiError ? error.message : "Failed to load mechanical log"}</p>
+      )}
+      {isLoading ? (
         <p>Loading…</p>
       ) : (
         <>
           <div className="stat-tiles">
             <div className="stat-tile">
-              <span className="stat-value">{rows.length}</span>
-              <span className="stat-label">Total entries</span>
+              <span className="stat-value">{loadedCount}</span>
+              <span className="stat-label">Loaded entries</span>
             </div>
             <div className="stat-tile alert">
-              <span className="stat-value">
-                {rows.filter((r) => r.need_qty !== null && Number(r.need_qty) > 0).length}
-              </span>
-              <span className="stat-label">Still needed</span>
+              <span className="stat-value">{stillNeededLoaded}</span>
+              <span className="stat-label">Still needed (loaded)</span>
             </div>
           </div>
 
           <div className="table-toolbar">
+            <div className="table-toolbar-filters">
+              <SearchBox value={q} onChange={setQ} placeholder="Search tag, description, supplier…" />
+            </div>
             <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th key={col.key}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(row)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={visibleColumns.length}>No mechanical log entries yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            visibleColumns={visibleColumns}
+            rows={rows}
+            rowKey={(row) => row.id}
+            sort={sort}
+            order={order}
+            onSortChange={(field) => setSort(field as MechanicalLogSortField)}
+            hasMore={hasMore}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
+            emptyMessage={q ? "No entries match your search." : "No mechanical log entries yet."}
+          />
         </>
       )}
     </div>
