@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   addDeliveryLineItemSchema,
   createDeliverySchema,
+  deliveriesListQuerySchema,
   idParamSchema,
   updateDeliverySchema,
 } from "../validation/deliveries.js";
@@ -25,9 +26,14 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-deliveriesRouter.get("/", async (_req, res) => {
+deliveriesRouter.get("/", async (req, res) => {
+  const parsed = deliveriesListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
   try {
-    res.json(await listDeliveries());
+    res.json(await listDeliveries(parsed.data));
   } catch (err) {
     handleError(res, err);
   }

@@ -1,31 +1,43 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { createDelivery, listDeliveries } from "../api/deliveries";
+import { createDelivery, listDeliveries, type DeliverySortField } from "../api/deliveries";
 import { listRequisitions } from "../api/requisitions";
 import { ApiError } from "../api/client";
 import { ColumnPicker } from "../components/ColumnPicker";
+import { DataTable } from "../components/DataTable";
+import { SearchBox } from "../components/SearchBox";
+import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
-import type { CreateDeliveryInput, Delivery, Requisition } from "../api/types";
+import type { CreateDeliveryInput, Delivery, DeliveryStatus, Requisition } from "../api/types";
 
 const COLUMNS: ColumnDef<Delivery>[] = [
   {
     key: "report_number",
     label: "Report #",
+    sortField: "report_number",
     render: (d) => <Link to={`/deliveries/${d.id}`}>#{d.report_number}</Link>,
   },
-  { key: "received_date", label: "Date", render: (d) => new Date(d.received_date).toLocaleDateString() },
+  {
+    key: "received_date",
+    label: "Date",
+    sortField: "received_date",
+    render: (d) => new Date(d.received_date).toLocaleDateString(),
+  },
   { key: "supplier", label: "Supplier", render: (d) => d.supplier ?? "—" },
   {
     key: "requisition",
     label: "Requisition",
+    sortField: "requisition_number",
     render: (d) =>
       d.requisition_id ? <Link to={`/requisitions/${d.requisition_id}`}>{d.requisition_number}</Link> : "—",
   },
   {
     key: "status",
     label: "Status",
+    sortField: "status",
     render: (d) => <span className={`badge-neutral badge-status-${d.status}`}>{d.status}</span>,
   },
+  // Not sortable: line_item_count is a _count aggregate, not a plain column.
   { key: "line_item_count", label: "Line items", render: (d) => d.line_item_count },
   { key: "bill_of_lading_no", label: "Bill of lading #", render: (d) => d.bill_of_lading_no ?? "—", defaultVisible: false },
   { key: "truck_number", label: "Truck #", render: (d) => d.truck_number ?? "—", defaultVisible: false },
@@ -33,27 +45,33 @@ const COLUMNS: ColumnDef<Delivery>[] = [
 ];
 
 export function DeliveriesListPage() {
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("deliveries", COLUMNS);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      setDeliveries(await listDeliveries());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load deliveries");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    rows,
+    hasMore,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+    refetch,
+    sort,
+    order,
+    setSort,
+    q,
+    setQ,
+    filters,
+    setFilter,
+  } = useListQuery<Delivery, DeliverySortField, { status: DeliveryStatus }>({
+    queryKeyBase: "deliveries",
+    fetchPage: listDeliveries,
+    defaultSort: "report_number",
+    defaultOrder: "desc",
+    filterKeys: ["status"],
+  });
 
   useEffect(() => {
-    refresh();
     listRequisitions()
       .then(setRequisitions)
       .catch(() => setRequisitions([]));
@@ -62,7 +80,7 @@ export function DeliveriesListPage() {
   async function handleCreate(input: CreateDeliveryInput) {
     const created = await createDelivery(input);
     setShowForm(false);
-    await refresh();
+    await refetch();
     return created;
   }
 
@@ -82,39 +100,41 @@ export function DeliveriesListPage() {
 
       {showForm && <AddDeliveryForm requisitions={requisitions} onSubmit={handleCreate} />}
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
+      {error && (
+        <p className="error">{error instanceof ApiError ? error.message : "Failed to load deliveries"}</p>
+      )}
+      {isLoading ? (
         <p>Loading…</p>
       ) : (
         <>
           <div className="table-toolbar">
+            <div className="table-toolbar-filters">
+              <SearchBox value={q} onChange={setQ} placeholder="Search supplier, bill of lading, truck #…" />
+              <div className="filter-bar">
+                <select
+                  value={filters.status ?? ""}
+                  onChange={(e) => setFilter("status", (e.target.value as DeliveryStatus) || undefined)}
+                >
+                  <option value="">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+            </div>
             <ColumnPicker columns={COLUMNS} visibleKeys={visibleKeys} onToggle={toggle} onReset={reset} />
           </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th key={col.key}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {deliveries.map((d) => (
-                  <tr key={d.id}>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key}>{col.render(d)}</td>
-                    ))}
-                  </tr>
-                ))}
-                {deliveries.length === 0 && (
-                  <tr>
-                    <td colSpan={visibleColumns.length}>No deliveries yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            visibleColumns={visibleColumns}
+            rows={rows}
+            rowKey={(d) => d.id}
+            sort={sort}
+            order={order}
+            onSortChange={(field) => setSort(field as DeliverySortField)}
+            hasMore={hasMore}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={() => fetchNextPage()}
+            emptyMessage={q || filters.status ? "No deliveries match your filters." : "No deliveries yet."}
+          />
         </>
       )}
     </div>
