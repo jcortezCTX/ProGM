@@ -9,11 +9,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// storage_key is an opaque pointer into whatever backend is active - see
+// api/src/lib/attachmentStorage.ts, the one module that knows how to read
+// it. Local disk for now (CLAUDE.md-style "keep it in one module" rule,
+// same as the SharePoint Graph API wiring this table was originally built
+// for); graph_drive_id/graph_item_id are left in place, unused, for if/when
+// that (or Wasabi, or Google Drive) actually gets wired up.
 model attachments {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   entity_type    String
   entity_id      String   @db.Uuid
   file_name      String
+  content_type   String?
+  size_bytes     Int?
+  storage_key    String?
   graph_drive_id String?
   graph_item_id  String?
   uploaded_by    String?  @db.Uuid

@@ -291,6 +291,22 @@ export interface AddDeliveryLineItemInput {
   location?: string;
 }
 
+// Polymorphic - one table for every entity type (see db/schema.sql).
+// storage_key/graph_drive_id/graph_item_id are backend-storage internals,
+// never used directly by the frontend (use attachmentFileUrl() instead).
+export type AttachmentEntityType = "inventory_item" | "delivery" | "drawing_revision" | "log_entry";
+
+export interface Attachment {
+  id: string;
+  entity_type: AttachmentEntityType;
+  entity_id: string;
+  file_name: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 // One row per released tag/spool from the real "Mechanical Log" Excel export
 // (logs_samples/Mechanical Log.csv) - a dedicated log, not linked to
 // inventory_items or delivery_line_items. All fields are nullable: the

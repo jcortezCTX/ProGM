@@ -3,3 +3,7 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Local-disk attachment storage (see src/lib/attachmentStorage.ts) - not
+# meant to be committed, same as any other uploaded user content.
+/uploads
