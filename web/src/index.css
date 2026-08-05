@@ -922,12 +922,18 @@ button:disabled {
 }
 
 .search-box {
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 1rem;
   font-size: 0.9rem;
   font-family: inherit;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid #e6e6e6;
+  border-radius: var(--radius-sm);
   min-width: 220px;
+}
+
+.search-box:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.25rem rgba(0, 161, 93, 0.15);
+  outline: 0;
 }
 
 .filter-bar {
@@ -938,11 +944,17 @@ button:disabled {
 }
 
 .filter-bar select {
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 1rem;
   font-size: 0.9rem;
   font-family: inherit;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid #e6e6e6;
+  border-radius: var(--radius-sm);
+}
+
+.filter-bar select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 0.25rem rgba(0, 161, 93, 0.15);
+  outline: 0;
 }
 
 .table-scroll {
@@ -969,6 +981,8 @@ button:disabled {
   gap: 0.2rem;
   font: inherit;
   font-weight: 600;
+  text-transform: inherit;
+  letter-spacing: inherit;
   color: inherit;
   background: none;
   border: none;
@@ -977,7 +991,7 @@ button:disabled {
 }
 
 .sortable-header:hover {
-  color: var(--sky);
+  color: var(--primary);
 }
 
 .sort-indicator {
@@ -1242,41 +1256,38 @@ button:disabled {
 }
 
 .concrete-subnav a.active {
-  color: var(--navy);
+  color: var(--primary);
   background: var(--card-bg);
-  box-shadow: inset 0 -2px 0 var(--sky);
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 
 .badge-overdue {
   margin-left: 0.5rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius);
   font-size: 0.72rem;
-  font-weight: 600;
-  background: #fef9c3;
-  color: #854d0e;
-  border: 1px solid #fde68a;
+  font-weight: 700;
+  background: rgba(255, 207, 109, 0.3);
+  color: #7a5c00;
 }
 
 .badge-result-pass {
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius);
   font-size: 0.72rem;
-  font-weight: 600;
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  font-weight: 700;
+  background: rgba(9, 189, 60, 0.12);
+  color: var(--success);
   text-transform: uppercase;
 }
 
 .badge-result-fail {
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius);
   font-size: 0.72rem;
-  font-weight: 600;
-  background: var(--danger-bg);
-  color: var(--danger-text);
-  border: 1px solid var(--danger-bg);
+  font-weight: 700;
+  background: rgba(252, 46, 83, 0.12);
+  color: var(--danger);
   text-transform: uppercase;
 }
 
@@ -1346,11 +1357,11 @@ tr.overdue {
 }
 
 .chart-bar {
-  fill: var(--sky);
+  fill: var(--primary);
 }
 
 .chart-bar-hover {
-  fill: var(--sky-dark);
+  fill: var(--primary-hover);
 }
 
 .chart-axis-label {
