@@ -87,4 +87,21 @@ describe("listMechanicalLogItems pagination", () => {
     const res = await listMechanicalLogItems({ limit: 50, order: "asc", q: `no-such-thing-${runId}` });
     expect(res).toEqual({ data: [], hasMore: false, nextCursor: null });
   });
+
+  // Regression: keysetWhere used to unconditionally add a `{ field: null }`
+  // OR-branch for asc sorts, which Prisma rejects against a non-nullable
+  // column like created_at. Paginating past the first page is what
+  // triggers it (the first page never needs a keyset predicate at all).
+  it("paginates across multiple pages when sorting by the non-nullable created_at field", async () => {
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let guard = 0; guard < 10; guard++) {
+      const res = await listMechanicalLogItems({ cursor, limit: 2, sort: "created_at", order: "asc", q: marker });
+      seen.push(...res.data.map((r) => r.id));
+      if (!res.hasMore) break;
+      cursor = res.nextCursor ?? undefined;
+    }
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen.sort()).toEqual([...ids].sort());
+  });
 });

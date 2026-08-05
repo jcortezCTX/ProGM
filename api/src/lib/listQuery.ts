@@ -33,6 +33,12 @@ export function decodeCursor(raw: string | undefined): CursorPayload | null {
 // below assumes Postgres's default (ASC sorts nulls last, DESC sorts nulls
 // first), matching what a plain `ORDER BY field ASC/DESC` produces.
 //
+// `nullable` must be true if the column can actually contain NULL. Prisma
+// rejects `{ [field]: null }` as a filter on a non-nullable column (a
+// runtime error, not just a wasted clause), so this only emits the
+// trailing "nulls sort last under ASC" branch when the caller confirms
+// nulls are possible for this field.
+//
 // Returned as `Record<string, unknown>` (not `any`, per project convention)
 // because this is spread into each model's Prisma `where` input, whose
 // exact shape differs per model - Prisma still validates the final object
@@ -41,11 +47,15 @@ export function keysetWhere(
   sortField: string,
   order: SortOrder,
   cursor: CursorPayload | null,
+  options: { nullable?: boolean } = {},
 ): Record<string, unknown> {
   if (!cursor) return {};
   const cmp = order === "asc" ? "gt" : "lt";
+  const nullable = options.nullable ?? false;
 
   if (cursor.v === null) {
+    // A non-nullable field's cursor value can never actually be null, so
+    // this branch is only reachable when the field is genuinely nullable.
     return order === "asc"
       ? { [sortField]: null, id: { gt: cursor.id } }
       : { OR: [{ [sortField]: { not: null } }, { [sortField]: null, id: { lt: cursor.id } }] };
@@ -57,7 +67,7 @@ export function keysetWhere(
       { [sortField]: cursor.v, id: { [cmp]: cursor.id } },
       // Nulls sort after every non-null value under ASC (Postgres default),
       // so once we're past a non-null cursor, remaining null rows are next.
-      ...(order === "asc" ? [{ [sortField]: null }] : []),
+      ...(nullable && order === "asc" ? [{ [sortField]: null }] : []),
     ],
   };
 }

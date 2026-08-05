@@ -17,6 +17,11 @@ export interface ListMechanicalLogItemsParams {
 // of when looking for an entry - not every column.
 const SEARCH_FIELDS = ["tag_number", "description", "supplier", "material"] as const;
 
+// tag_number/due_date are nullable columns; created_at is not - keysetWhere
+// needs to know which, since it must never emit `{ field: null }` against a
+// non-nullable column (Prisma rejects that as an invalid filter).
+const NULLABLE_SORT_FIELDS = new Set<MechanicalLogSortField>(["tag_number", "due_date"]);
+
 function cursorValue(item: Record<string, unknown>, sortField: string): string | number | null {
   const raw = item[sortField];
   if (raw instanceof Date) return raw.toISOString();
@@ -91,7 +96,7 @@ export async function listMechanicalLogItems(params: ListMechanicalLogItemsParam
   const cursor = decodeCursor(params.cursor);
 
   const where = combineWhere(
-    keysetWhere(sortField, params.order, cursor),
+    keysetWhere(sortField, params.order, cursor, { nullable: NULLABLE_SORT_FIELDS.has(sortField) }),
     params.q
       ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
       : {},

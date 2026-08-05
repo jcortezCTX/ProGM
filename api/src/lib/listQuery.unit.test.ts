@@ -41,15 +41,29 @@ describe("keysetWhere", () => {
     expect(keysetWhere("name", "asc", null)).toEqual({});
   });
 
-  it("builds an asc fragment for a non-null cursor value, including the trailing-nulls branch", () => {
-    const where = keysetWhere("name", "asc", { v: "m", id: "row-1" });
+  it("builds an asc fragment for a non-null cursor value on a nullable field, including the trailing-nulls branch", () => {
+    const where = keysetWhere("name", "asc", { v: "m", id: "row-1" }, { nullable: true });
     expect(where).toEqual({
       OR: [{ name: { gt: "m" } }, { name: "m", id: { gt: "row-1" } }, { name: null }],
     });
   });
 
-  it("builds a desc fragment for a non-null cursor value, with no trailing-nulls branch", () => {
-    const where = keysetWhere("name", "desc", { v: "m", id: "row-1" });
+  it("omits the trailing-nulls branch by default (field assumed non-nullable)", () => {
+    const where = keysetWhere("drawing_number", "asc", { v: "m", id: "row-1" });
+    expect(where).toEqual({
+      OR: [{ drawing_number: { gt: "m" } }, { drawing_number: "m", id: { gt: "row-1" } }],
+    });
+  });
+
+  it("omits the trailing-nulls branch when nullable is explicitly false", () => {
+    const where = keysetWhere("drawing_number", "asc", { v: "m", id: "row-1" }, { nullable: false });
+    expect(where).toEqual({
+      OR: [{ drawing_number: { gt: "m" } }, { drawing_number: "m", id: { gt: "row-1" } }],
+    });
+  });
+
+  it("builds a desc fragment for a non-null cursor value, with no trailing-nulls branch regardless of nullable", () => {
+    const where = keysetWhere("name", "desc", { v: "m", id: "row-1" }, { nullable: true });
     expect(where).toEqual({
       OR: [{ name: { lt: "m" } }, { name: "m", id: { lt: "row-1" } }],
     });
