@@ -18,6 +18,7 @@ import { ConcretePumpTruckPage } from "./pages/ConcretePumpTruckPage";
 import { ConcreteCreditsPage } from "./pages/ConcreteCreditsPage";
 import { ConcreteMixDesignsPage } from "./pages/ConcreteMixDesignsPage";
 import { ConcreteSettingsPage } from "./pages/ConcreteSettingsPage";
+import { TasksListPage } from "./pages/TasksListPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
@@ -47,6 +48,8 @@ function App() {
           <Route path="/concrete/credits" element={<ConcreteCreditsPage />} />
           <Route path="/concrete/mix-designs" element={<ConcreteMixDesignsPage />} />
           <Route path="/concrete/settings" element={<ConcreteSettingsPage />} />
+          <Route path="/tasks" element={<TasksListPage />} />
+          <Route path="/tasks/:id" element={<TasksListPage />} />
           <Route element={<RequireRole role="admin" />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>

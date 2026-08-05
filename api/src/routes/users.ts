@@ -24,8 +24,11 @@ function handleError(res: import("express").Response, err: unknown) {
   res.status(500).json({ error: "internal server error" });
 }
 
-usersRouter.use(requireAuth, requireRole("admin"));
+usersRouter.use(requireAuth);
 
+// Open to any signed-in user (not just admins) - the Tasks module's
+// assignee/watcher pickers need the directory. listUsers() only returns
+// PublicUser fields, never password_hash, so this is safe to widen.
 usersRouter.get("/", async (_req, res) => {
   try {
     res.json(await listUsers());
@@ -34,7 +37,7 @@ usersRouter.get("/", async (_req, res) => {
   }
 });
 
-usersRouter.post("/", async (req, res) => {
+usersRouter.post("/", requireRole("admin"), async (req, res) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -48,7 +51,7 @@ usersRouter.post("/", async (req, res) => {
   }
 });
 
-usersRouter.patch("/:id/role", async (req, res) => {
+usersRouter.patch("/:id/role", requireRole("admin"), async (req, res) => {
   const parsedId = idParamSchema.safeParse(req.params);
   if (!parsedId.success) {
     res.status(400).json({ error: parsedId.error.message });

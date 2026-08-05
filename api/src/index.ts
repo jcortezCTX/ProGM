@@ -16,6 +16,8 @@ import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
 import { pumpTruckRentalsRouter } from "./routes/pumpTruckRentals.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
+import { taskListsRouter } from "./routes/taskLists.js";
+import { tasksRouter } from "./routes/tasks.js";
 import { usersRouter } from "./routes/users.js";
 
 const app = express();
@@ -45,6 +47,8 @@ app.use("/api/users", usersRouter); // admin-only, enforced inside the router
 // bearer token.
 app.use("/api/attachments", attachmentsRouter);
 app.use("/api/drawings", drawingsRouter);
+app.use("/api/task-lists", requireAuth, taskListsRouter);
+app.use("/api/tasks", requireAuth, tasksRouter);
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's

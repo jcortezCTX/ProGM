@@ -1386,3 +1386,272 @@ tr.overdue {
     display: none !important;
   }
 }
+
+/* Task Management — Lists sidebar, grouped task table, detail slide-over
+   (badge-status-in_review is shared with Drawing Log's status, above) */
+
+.tasks-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.tasks-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.tasks-sidebar-heading {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 0 0 0.25rem;
+}
+
+.tasks-sidebar-item {
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.tasks-sidebar-item:hover {
+  background: var(--page-bg);
+}
+
+.tasks-sidebar-item.active {
+  background: var(--navy);
+  color: white;
+}
+
+.tasks-sidebar-new {
+  margin-top: 0.4rem;
+}
+
+.tasks-sidebar-new input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+.tasks-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-group {
+  margin-bottom: 1rem;
+}
+
+.task-group summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  padding: 0.5rem 0;
+  color: var(--text);
+}
+
+.task-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.task-group-chevron {
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.task-group[open] .task-group-chevron {
+  transform: rotate(90deg);
+}
+
+.task-group-count {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.task-row-title {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-row-title:hover {
+  color: var(--sky-dark);
+  text-decoration: underline;
+}
+
+.task-assignee-avatars {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.task-avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--navy);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.task-add-row input {
+  width: 100%;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: transparent;
+}
+
+.task-add-row input:focus {
+  outline: none;
+  border-color: var(--sky);
+  border-style: solid;
+}
+
+.badge-priority-urgent {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-bg);
+}
+
+.badge-priority-high {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.badge-priority-normal {
+  background: var(--page-bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.badge-priority-low {
+  background: #e0f2fe;
+  color: #075985;
+  border-color: #bae6fd;
+}
+
+.badge-status-to_do {
+  background: var(--page-bg);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.badge-status-in_progress {
+  background: #e0f2fe;
+  color: #075985;
+  border-color: #bae6fd;
+}
+
+.badge-status-complete {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 41, 58, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 20;
+}
+
+.panel {
+  width: min(560px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--card-bg);
+  padding: 1.5rem;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+
+.panel-close:hover {
+  background: var(--page-bg);
+  color: var(--text);
+}
+
+.panel-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.property-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.property-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.property-row-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.property-row select,
+.property-row input {
+  font-family: inherit;
+  font-size: 0.92rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.assignee-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
