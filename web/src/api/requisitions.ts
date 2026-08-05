@@ -1,8 +1,12 @@
-import { apiFetch } from "./client";
-import type { CreateRequisitionInput, Requisition, RequisitionDetail } from "./types";
+import { apiFetch, buildQueryString } from "./client";
+import type { CreateRequisitionInput, ListParams, ListResponse, Requisition, RequisitionDetail } from "./types";
 
-export function listRequisitions(): Promise<Requisition[]> {
-  return apiFetch("/requisitions");
+export type RequisitionSortField = "requisition_number" | "supplier" | "created_at";
+
+export function listRequisitions(
+  params: ListParams<RequisitionSortField> = {},
+): Promise<ListResponse<Requisition>> {
+  return apiFetch(`/requisitions${buildQueryString(params)}`);
 }
 
 export function createRequisition(input: CreateRequisitionInput): Promise<RequisitionDetail> {
