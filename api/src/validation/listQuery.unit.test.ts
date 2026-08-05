@@ -20,8 +20,12 @@ describe("buildListQuerySchema", () => {
     expect(schema.safeParse({ limit: "0" }).success).toBe(false);
   });
 
-  it("rejects a limit above 200", () => {
-    expect(schema.safeParse({ limit: "500" }).success).toBe(false);
+  it("accepts a large limit for unbounded-picker callers", () => {
+    expect(schema.safeParse({ limit: "500" }).success).toBe(true);
+  });
+
+  it("rejects a limit above 1000", () => {
+    expect(schema.safeParse({ limit: "5000" }).success).toBe(false);
   });
 
   it("rejects a sort field outside the allowed set", () => {
