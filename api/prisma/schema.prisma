@@ -264,6 +264,134 @@ model mechanical_log_items {
   @@index([tag_number], map: "idx_mechanical_log_items_tag_number")
 }
 
+// Single-row job config (job number/name, start date, total estimated CY).
+// UI always upserts the one row; never store totals/averages derived from
+// pours here - only the estimate baseline (see CONCRETE_LOG_SPEC.md).
+model concrete_settings {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_number   String
+  job_name     String
+  start_date   DateTime @db.Date
+  total_est_cy Decimal? @db.Decimal
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
+// Reference data per supplier (from the "Mix Designs" sheet). Pours snapshot
+// design_strength_psi at pour time rather than reading it live from here, so
+// pass/fail stays stable if a mix design is later edited.
+model concrete_mix_designs {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplier            String
+  concrete_class      String?
+  mix_type            String?
+  mix_number          String
+  type_of_work        String?
+  design_strength_psi Int?
+  slump_range         String?
+  air_range           String?
+  active              Boolean          @default(true)
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  concrete_pours      concrete_pours[]
+
+  @@unique([supplier, mix_number])
+}
+
+// From the Summary Sheet's structure column (mostly unpopulated in the real
+// workbook - est values are nullable and editable in the UI). Also upserted
+// on the fly from distinct pour "Structure" values during import.
+model concrete_structures {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String           @unique
+  est_cy         Decimal?         @db.Decimal
+  est_cost       Decimal?         @db.Decimal
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  concrete_pours concrete_pours[]
+}
+
+// Merges the Excel's two near-identical pour sheets (self-perform vs. subs)
+// into one table - is_subcontractor is the only real distinction. Derived
+// values (month bucket, over/under required, waste) are computed in the
+// service layer, never stored here (CLAUDE.md rule 1 spirit).
+model concrete_pours {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pour_date            DateTime              @db.Date
+  location             String
+  structure_id         String?               @db.Uuid
+  mix_design_id        String?               @db.Uuid
+  design_strength_psi  Int
+  yds_required         Decimal?              @db.Decimal
+  yds_delivered        Decimal?              @db.Decimal
+  yds_installed        Decimal?              @db.Decimal
+  is_subcontractor     Boolean               @default(false)
+  poured_by            String?
+  invoice_number       String?
+  invoice_total        Decimal?              @db.Decimal
+  notes                String?
+  created_by           String?               @db.Uuid
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+  users                users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  concrete_structures  concrete_structures?  @relation(fields: [structure_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  concrete_mix_designs concrete_mix_designs? @relation(fields: [mix_design_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  concrete_samples     concrete_samples[]
+
+  @@index([pour_date], map: "idx_concrete_pours_pour_date")
+  @@index([structure_id], map: "idx_concrete_pours_structure")
+}
+
+// Break samples as child rows, not wide "Sample #N" columns - unlimited
+// samples per pour, no duplication (see CONCRETE_LOG_SPEC.md). result
+// (Pass/Fail) and margin above design are derived, never stored.
+model concrete_samples {
+  id                          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pour_id                     String         @db.Uuid
+  report_number               String?
+  seven_day_psi               Decimal?       @db.Decimal
+  seven_day_entered_on        DateTime?      @db.Date
+  twenty_eight_day_psi        Decimal?       @db.Decimal
+  twenty_eight_day_entered_on DateTime?      @db.Date
+  notes                       String?
+  created_at                  DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+  concrete_pours              concrete_pours @relation(fields: [pour_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([pour_id], map: "idx_concrete_samples_pour")
+}
+
+// $/CY is derived (amount / cubic_yards), never stored.
+model pump_truck_rentals {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rental_date          DateTime  @db.Date
+  location             String
+  truck_size_requested String?
+  truck_size_sent      String?
+  hours                Decimal?  @db.Decimal
+  invoice_number       String?
+  amount               Decimal?  @db.Decimal
+  cubic_yards          Decimal?  @db.Decimal
+  date_approved        DateTime? @db.Date
+  notes                String?
+  created_by           String?   @db.Uuid
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  users                users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model concrete_credits {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date_received DateTime  @db.Date
+  amount        Decimal   @db.Decimal
+  date_approved DateTime? @db.Date
+  notes         String?
+  created_by    String?   @db.Uuid
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  users         users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
 model log_entries {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   log_type_id String    @db.Uuid
@@ -359,6 +487,8 @@ model users {
   created_at                     DateTime                   @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                   @default(now()) @db.Timestamptz(6)
   attachments                    attachments[]
+  concrete_credits               concrete_credits[]
+  concrete_pours                 concrete_pours[]
   deliveries                     deliveries[]
   drawing_revisions              drawing_revisions[]
   drawings                       drawings[]
@@ -366,6 +496,7 @@ model users {
   log_entries                    log_entries[]
   log_types                      log_types[]
   mechanical_log_items           mechanical_log_items[]
+  pump_truck_rentals             pump_truck_rentals[]
   requisitions                   requisitions[]
   schedule_event_attendees       schedule_event_attendees[]
   schedule_events                schedule_events[]
