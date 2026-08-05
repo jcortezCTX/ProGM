@@ -2,7 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 const PROJECT_LOG_PLACEHOLDERS = ["Custom Log"];
-const FUTURE_MODULES = ["Tasks", "Scheduling"];
+const FUTURE_MODULES = ["Scheduling"];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -38,6 +38,10 @@ export function Layout() {
         <nav className="app-sidebar">
           <NavLink to="/inventory" className={({ isActive }) => (isActive ? "active" : "")}>
             Inventory
+          </NavLink>
+
+          <NavLink to="/tasks" className={({ isActive }) => (isActive ? "active" : "")}>
+            Tasks
           </NavLink>
 
           <details className="sidebar-group" open>

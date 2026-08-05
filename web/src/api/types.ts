@@ -426,3 +426,87 @@ export interface MechanicalLogItem {
 export type MechanicalLogItemInput = Partial<
   Omit<MechanicalLogItem, "id" | "created_by" | "created_at" | "updated_at">
 >;
+
+// ============================================================
+// Task Management — Lists + Tasks (Phase 1: core CRUD).
+// Subtasks/checklists/watchers/attachments (Phase 2) and the
+// activity feed/comments/@mentions/notifications (Phase 3) land later,
+// per ccowork/TASK_MODULE_SPEC.md's phased build plan.
+// ============================================================
+
+export interface TaskList {
+  id: string;
+  name: string;
+  color: string | null;
+  archived: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTaskListInput {
+  name: string;
+  color?: string;
+}
+
+export interface UpdateTaskListInput {
+  name?: string;
+  color?: string | null;
+  archived?: boolean;
+}
+
+export type TaskStatus = "to_do" | "in_progress" | "in_review" | "complete";
+export type TaskPriority = "urgent" | "high" | "normal" | "low";
+
+// role is always "assignee" until Phase 2 adds watchers.
+export interface TaskAssignee {
+  user_id: string;
+  role: "assignee" | "watcher";
+  display_name: string;
+  email: string;
+}
+
+export interface Task {
+  id: string;
+  list_id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority | null;
+  start_date: string | null;
+  due_date: string | null;
+  project: string | null;
+  category: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  assignees: TaskAssignee[];
+}
+
+export interface CreateTaskInput {
+  list_id: string;
+  title: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority | null;
+  start_date?: string | null;
+  due_date?: string | null;
+  project?: string;
+  category?: string;
+  assignee_ids?: string[];
+}
+
+// All fields optional - PATCH semantics.
+export interface UpdateTaskInput {
+  list_id?: string;
+  title?: string;
+  description?: string | null;
+  status?: TaskStatus;
+  priority?: TaskPriority | null;
+  start_date?: string | null;
+  due_date?: string | null;
+  project?: string | null;
+  category?: string | null;
+  assignee_ids?: string[];
+}

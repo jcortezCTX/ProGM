@@ -87,7 +87,6 @@ model deliveries {
   users                      users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   requisitions               requisitions?         @relation(fields: [requisition_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   delivery_line_items        delivery_line_items[]
-  tasks                      tasks[]
 }
 
 model delivery_line_items {
@@ -143,7 +142,6 @@ model drawings {
   drawing_revisions_drawing_revisions_drawing_idTodrawings          drawing_revisions[] @relation("drawing_revisions_drawing_idTodrawings")
   users                                                             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   drawing_revisions_drawings_current_revision_idTodrawing_revisions drawing_revisions?  @relation("drawings_current_revision_idTodrawing_revisions", fields: [current_revision_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_drawings_current_revision")
-  tasks                                                             tasks[]
 }
 
 model inventory_items {
@@ -326,25 +324,50 @@ model task_comments {
   @@index([task_id], map: "idx_task_comments_task")
 }
 
+model task_lists {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  color      String?
+  archived   Boolean  @default(false)
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users?   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks      tasks[]
+}
+
 model tasks {
-  id                             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  list_id                        String           @db.Uuid
   title                          String
   description                    String?
-  status                         task_status     @default(open)
-  assignee_id                    String?         @db.Uuid
-  due_date                       DateTime?       @db.Timestamptz(6)
-  delivery_id                    String?         @db.Uuid
-  drawing_id                     String?         @db.Uuid
-  created_by                     String?         @db.Uuid
-  created_at                     DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at                     DateTime        @default(now()) @db.Timestamptz(6)
+  status                         task_status      @default(to_do)
+  priority                       task_priority?
+  start_date                     DateTime?        @db.Date
+  due_date                       DateTime?        @db.Date
+  project                        String?
+  category                       String?
+  sort_order                     Int              @default(0)
+  created_by                     String?          @db.Uuid
+  created_at                     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime         @default(now()) @db.Timestamptz(6)
+  task_lists                     task_lists       @relation(fields: [list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_tasks_created_byTousers  users?           @relation("tasks_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task_assignees                 task_assignees[]
   task_comments                  task_comments[]
-  users_tasks_assignee_idTousers users?          @relation("tasks_assignee_idTousers", fields: [assignee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_tasks_created_byTousers  users?          @relation("tasks_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  deliveries                     deliveries?     @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  drawings                       drawings?       @relation(fields: [drawing_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([assignee_id], map: "idx_tasks_assignee")
+  @@index([list_id], map: "idx_tasks_list")
+}
+
+model task_assignees {
+  task_id String             @db.Uuid
+  user_id String             @db.Uuid
+  role    task_assignee_role
+  tasks   tasks              @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users   users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([task_id, user_id, role])
+  @@index([user_id], map: "idx_task_assignees_user")
 }
 
 model users {
@@ -370,8 +393,9 @@ model users {
   schedule_event_attendees       schedule_event_attendees[]
   schedule_events                schedule_events[]
   sessions                       sessions[]
+  task_assignees                 task_assignees[]
   task_comments                  task_comments[]
-  tasks_tasks_assignee_idTousers tasks[]                    @relation("tasks_assignee_idTousers")
+  task_lists                     task_lists[]
   tasks_tasks_created_byTousers  tasks[]                    @relation("tasks_created_byTousers")
 }
 
@@ -441,10 +465,22 @@ enum inventory_custom_field_type {
 }
 
 enum task_status {
-  open
+  to_do
   in_progress
-  blocked
-  done
+  in_review
+  complete
+}
+
+enum task_priority {
+  urgent
+  high
+  normal
+  low
+}
+
+enum task_assignee_role {
+  assignee
+  watcher
 }
 
 enum user_role {
