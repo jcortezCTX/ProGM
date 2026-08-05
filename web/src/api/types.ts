@@ -443,3 +443,192 @@ export interface MechanicalLogItem {
 export type MechanicalLogItemInput = Partial<
   Omit<MechanicalLogItem, "id" | "created_by" | "created_at" | "updated_at">
 >;
+
+// ---- Concrete Log (see CONCRETE_LOG_SPEC.md) ----
+
+export interface ConcreteSettings {
+  id: string;
+  job_number: string;
+  job_name: string;
+  start_date: string;
+  total_est_cy: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ConcreteSettingsInput = Partial<Omit<ConcreteSettings, "id" | "created_at" | "updated_at">>;
+
+export interface ConcreteMixDesign {
+  id: string;
+  supplier: string;
+  concrete_class: string | null;
+  mix_type: string | null;
+  mix_number: string;
+  type_of_work: string | null;
+  design_strength_psi: number | null;
+  slump_range: string | null;
+  air_range: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ConcreteMixDesignInput = Partial<Omit<ConcreteMixDesign, "id" | "created_at" | "updated_at">>;
+
+export interface ConcreteStructure {
+  id: string;
+  name: string;
+  est_cy: string | null;
+  est_cost: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ConcreteStructureInput = Partial<Omit<ConcreteStructure, "id" | "created_at" | "updated_at">>;
+
+export type SampleResult = "pass" | "fail" | null;
+
+export interface ConcreteSample {
+  id: string;
+  pour_id: string;
+  report_number: string | null;
+  seven_day_psi: string | null;
+  seven_day_entered_on: string | null;
+  twenty_eight_day_psi: string | null;
+  twenty_eight_day_entered_on: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Derived - never sent on write.
+  result: SampleResult;
+  margin_above_design: number | null;
+}
+
+export type ConcreteSampleInput = Partial<
+  Omit<ConcreteSample, "id" | "pour_id" | "created_at" | "updated_at" | "result" | "margin_above_design">
+>;
+
+export interface ConcretePour {
+  id: string;
+  pour_date: string;
+  location: string;
+  structure_id: string | null;
+  mix_design_id: string | null;
+  design_strength_psi: number;
+  yds_required: string | null;
+  yds_delivered: string | null;
+  yds_installed: string | null;
+  is_subcontractor: boolean;
+  poured_by: string | null;
+  invoice_number: string | null;
+  invoice_total: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Derived - never sent on write.
+  month: string;
+  over_under_required: number | null;
+  waste: number | null;
+  sample_count: number;
+  seven_day_avg: number | null;
+  twenty_eight_day_avg: number | null;
+  seven_day_overdue: boolean;
+  twenty_eight_day_overdue: boolean;
+  samples: ConcreteSample[];
+}
+
+export interface CreatePourInput {
+  pour_date: string;
+  location: string;
+  structure_id?: string | null;
+  mix_design_id?: string | null;
+  design_strength_psi: number;
+  yds_required?: string | null;
+  yds_delivered?: string | null;
+  yds_installed?: string | null;
+  is_subcontractor?: boolean;
+  poured_by?: string | null;
+  invoice_number?: string | null;
+  invoice_total?: string | null;
+  notes?: string | null;
+}
+
+export type UpdatePourInput = Partial<CreatePourInput>;
+
+export interface PumpTruckRental {
+  id: string;
+  rental_date: string;
+  location: string;
+  truck_size_requested: string | null;
+  truck_size_sent: string | null;
+  hours: string | null;
+  invoice_number: string | null;
+  amount: string | null;
+  cubic_yards: string | null;
+  date_approved: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Derived - never sent on write.
+  per_cy: number | null;
+}
+
+export type PumpTruckRentalInput = Partial<
+  Omit<PumpTruckRental, "id" | "created_by" | "created_at" | "updated_at" | "per_cy">
+>;
+
+export interface ConcreteCredit {
+  id: string;
+  date_received: string;
+  amount: string;
+  date_approved: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ConcreteCreditInput = Partial<Omit<ConcreteCredit, "id" | "created_by" | "created_at" | "updated_at">>;
+
+export interface ConcreteSummaryStructureRow {
+  id: string;
+  name: string;
+  est_cy: number | null;
+  est_cost: number | null;
+  jtd_yds: number;
+  jtd_cost: number;
+  diff_cy: number | null;
+  diff_cost: number | null;
+  est_rate: number | null;
+  actual_rate: number | null;
+}
+
+export interface ConcreteSummary {
+  total_cy_placed: number;
+  total_est_cy: number | null;
+  percent_complete: number | null;
+  monthly: { month: string; cy: number }[];
+  structures: ConcreteSummaryStructureRow[];
+  pass_count: number;
+  fail_count: number;
+  pass_rate: number | null;
+  avg_margin_above_design: number | null;
+}
+
+export interface WeeklyReportSample extends Omit<ConcreteSample, "pour_id"> {
+  pour: { id: string; pour_date: string; location: string; design_strength_psi: number };
+}
+
+export interface WeeklyReport {
+  week_start: string;
+  week_ending: string;
+  seven_day_results: WeeklyReportSample[];
+  twenty_eight_day_results: WeeklyReportSample[];
+  counts: {
+    seven_day_results: number;
+    twenty_eight_day_pass: number;
+    twenty_eight_day_fail: number;
+  };
+}

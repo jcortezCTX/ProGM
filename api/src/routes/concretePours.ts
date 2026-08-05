@@ -7,6 +7,7 @@ import {
   updatePourSchema,
   weeklyReportQuerySchema,
 } from "../validation/concretePours.js";
+import { renderWeeklyReportPdf } from "../lib/weeklyReportPdf.js";
 import {
   NotFoundError,
   addSample,
@@ -21,6 +22,7 @@ import {
   updatePour,
   updateSample,
 } from "../services/concretePourService.js";
+import { getConcreteSettings } from "../services/concreteSettingsService.js";
 
 export const concretePoursRouter = Router();
 export const concreteSamplesRouter = Router();
@@ -187,6 +189,26 @@ concreteDashboardRouter.get("/weekly-report", async (req, res) => {
   }
   try {
     res.json(await getWeeklyReport(parsed.data.weekEnding));
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+concreteDashboardRouter.get("/weekly-report/pdf", async (req, res) => {
+  const parsed = weeklyReportQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  try {
+    const [report, settings] = await Promise.all([
+      getWeeklyReport(parsed.data.weekEnding),
+      getConcreteSettings(),
+    ]);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="concrete-weekly-report-${report.week_ending}.pdf"`);
+    const doc = renderWeeklyReportPdf(report, settings);
+    doc.pipe(res);
   } catch (err) {
     handleError(res, err);
   }
