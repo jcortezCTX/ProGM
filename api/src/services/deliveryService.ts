@@ -1,11 +1,65 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { combineWhere, decodeCursor, keysetWhere, paginate, type CursorPayload } from "../lib/listQuery.js";
 
 export class NotFoundError extends Error {}
 
 export type DeliveryLineDisposition = "accept" | "conditional_use" | "reject";
 export type DeliveryStatus = "open" | "closed";
 type DecimalInput = string | number | Prisma.Decimal;
+
+type DeliverySortField = "report_number" | "received_date" | "status" | "requisition_number";
+
+export interface ListDeliveriesParams {
+  cursor?: string;
+  limit: number;
+  sort?: DeliverySortField;
+  order: "asc" | "desc";
+  q?: string;
+  status?: DeliveryStatus;
+}
+
+// Free-text search spans the fields someone would type a fragment of when
+// looking for a delivery, not every column. requisition_number lives on the
+// related requisition, not a column here, so it's left out of text search
+// (it's still sortable - see requisitionNumberWhere below).
+const SEARCH_FIELDS = ["supplier", "bill_of_lading_no", "truck_number"] as const;
+
+// requisition_number isn't a column on `deliveries` - it's requisition_number
+// on the related (optional) requisitions row - so it needs its own keyset
+// shape rather than the flat-column keysetWhere helper. A delivery with no
+// linked requisition (requisition_id null) sorts as a null value, same
+// nulls-last(asc)/nulls-first(desc) convention as every other nullable sort
+// field (see lib/listQuery.ts).
+function requisitionNumberWhere(order: "asc" | "desc", cursor: CursorPayload | null): Record<string, unknown> {
+  if (!cursor) return {};
+  const cmp = order === "asc" ? "gt" : "lt";
+
+  if (cursor.v === null) {
+    return order === "asc"
+      ? { requisition_id: null, id: { gt: cursor.id } }
+      : { OR: [{ requisitions: { isNot: null } }, { requisition_id: null, id: { lt: cursor.id } }] };
+  }
+
+  return {
+    OR: [
+      { requisitions: { requisition_number: { [cmp]: cursor.v } } },
+      { requisitions: { requisition_number: cursor.v }, id: { [cmp]: cursor.id } },
+      ...(order === "asc" ? [{ requisition_id: null }] : []),
+    ],
+  };
+}
+
+function cursorValue(row: Record<string, unknown>, sortField: DeliverySortField): string | number | null {
+  if (sortField === "requisition_number") {
+    const relation = row.requisitions as { requisition_number: string } | null;
+    return relation?.requisition_number ?? null;
+  }
+  const raw = row[sortField];
+  if (raw instanceof Date) return raw.toISOString();
+  if (typeof raw === "string" || typeof raw === "number") return raw;
+  return null;
+}
 
 export interface CreateDeliveryInput {
   requisition_id?: string | null;
@@ -33,16 +87,42 @@ export async function createDelivery(input: CreateDeliveryInput) {
   });
 }
 
-export async function listDeliveries() {
-  const deliveries = await prisma.deliveries.findMany({
-    orderBy: { report_number: "desc" },
+export async function listDeliveries(params: ListDeliveriesParams) {
+  const sortField = params.sort ?? "report_number";
+  const cursor = decodeCursor(params.cursor);
+  const isRelationSort = sortField === "requisition_number";
+
+  const where = combineWhere(
+    isRelationSort ? requisitionNumberWhere(params.order, cursor) : keysetWhere(sortField, params.order, cursor),
+    params.status ? { status: params.status } : {},
+    params.q
+      ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
+      : {},
+  );
+
+  const orderBy = isRelationSort
+    ? [{ requisitions: { requisition_number: params.order } }, { id: params.order }]
+    : [{ [sortField]: params.order }, { id: params.order }];
+
+  const rows = await prisma.deliveries.findMany({
+    where,
+    orderBy,
+    take: params.limit + 1,
     include: { _count: { select: { delivery_line_items: true } }, requisitions: true },
   });
-  return deliveries.map(({ _count, requisitions, ...rest }) => ({
+
+  const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => ({
+    v: cursorValue(row, sortField),
+    id: row.id,
+  }));
+
+  const data = page.map(({ _count, requisitions, ...rest }) => ({
     ...rest,
     line_item_count: _count.delivery_line_items,
     requisition_number: requisitions?.requisition_number ?? null,
   }));
+
+  return { data, hasMore, nextCursor };
 }
 
 export async function getDelivery(id: string) {
