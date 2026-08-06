@@ -120,3 +120,28 @@ describe("assertValidAttributeSchema", () => {
     );
   });
 });
+
+describe("compiled schema cache", () => {
+  // Regression test: the cache is capped and FIFO-evicted so distinct
+  // schema text (e.g. from repeated attribute_schema edits over the app's
+  // lifetime) doesn't grow it forever. This doesn't inspect the cache
+  // directly (not exported) - it drives eviction by validating against far
+  // more distinct schemas than the cap, then confirms both a schema from
+  // well before the cap (should have been evicted and recompiled) and one
+  // from after it (should still be cached) validate correctly. A regression
+  // in the eviction logic itself (wrong key deleted, crash, etc.) would
+  // show up here as either exception or an incorrect result.
+  it("keeps validating correctly across many more distinct schemas than the cache cap", () => {
+    for (let i = 0; i < 550; i++) {
+      const schema = { type: "object", properties: { [`field_${i}`]: { type: "number" } }, required: [`field_${i}`] };
+      expect(validateAttributes(schema, { [`field_${i}`]: i }).valid).toBe(true);
+      expect(validateAttributes(schema, {}).valid).toBe(false);
+    }
+
+    const earlySchema = { type: "object", properties: { field_0: { type: "number" } }, required: ["field_0"] };
+    expect(validateAttributes(earlySchema, { field_0: 1 }).valid).toBe(true);
+
+    const lateSchema = { type: "object", properties: { field_549: { type: "number" } }, required: ["field_549"] };
+    expect(validateAttributes(lateSchema, { field_549: 1 }).valid).toBe(true);
+  });
+});

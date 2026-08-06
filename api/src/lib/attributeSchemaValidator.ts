@@ -22,6 +22,13 @@ export class InvalidAttributeSchemaError extends Error {}
 // being recompiled on every call - this is also what makes a stage-3
 // dry-run pass over thousands of existing assets cheap: compile once, then
 // call the cached validate function in a loop.
+//
+// Capped and FIFO-evicted: the spec expects attribute_schema to be "edited
+// constantly," and every distinct schema text (including ones from earlier,
+// now-superseded schema_versions) adds a permanent entry otherwise - an
+// unbounded leak over the app's lifetime. Map preserves insertion order, so
+// deleting the first key is the oldest entry.
+const MAX_CACHED_SCHEMAS = 500;
 const compiledCache = new Map<string, ValidateFunction>();
 
 function compile(schema: unknown): ValidateFunction {
@@ -36,6 +43,11 @@ function compile(schema: unknown): ValidateFunction {
     throw new InvalidAttributeSchemaError(
       `attribute_schema is not a valid JSON Schema: ${err instanceof Error ? err.message : String(err)}`,
     );
+  }
+
+  if (compiledCache.size >= MAX_CACHED_SCHEMAS) {
+    const oldestKey = compiledCache.keys().next().value;
+    if (oldestKey !== undefined) compiledCache.delete(oldestKey);
   }
   compiledCache.set(key, validate);
   return validate;
