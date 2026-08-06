@@ -32,6 +32,147 @@ model attachments {
   @@index([entity_type, entity_id], map: "idx_attachments_entity")
 }
 
+// Asset Tracking module (ccowork/asset-tracking-module-spec.md). Core schema
+// only for now — per-asset-type JSON Schemas (valves, pumps, tanks, etc.)
+// come later once provided; `generic_asset` is a seeded placeholder type.
+// geom/boundary/bounds/default_center are PostGIS geometry columns; Prisma
+// has no native type for them, so they're Unsupported and read/written via
+// raw SQL ($queryRaw / $executeRaw) in the service layer, same as every
+// PostGIS app built on Prisma.
+model sites {
+  id             String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  code           String?                                 @unique
+  description    String?
+  boundary       Unsupported("geometry(Polygon, 4326)")?
+  default_center Unsupported("geometry(Point, 4326)")?
+  default_zoom   Int?                                    @db.SmallInt
+  timezone       String?
+  created_by     String?                                 @db.Uuid
+  created_at     DateTime                                @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime                                @default(now()) @db.Timestamptz(6)
+  users          users?                                  @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  site_layouts   site_layouts[]
+  assets         assets[]
+}
+
+// The plant drawing overlay. storage_key is resolved through the same
+// api/src/lib/attachmentStorage.ts module used by the `attachments` table
+// (CLAUDE.md rule 4 — one storage module, not duplicated per feature).
+model site_layouts {
+  id              String                                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  site_id         String                                  @db.Uuid
+  name            String
+  storage_key     String
+  image_width_px  Int?
+  image_height_px Int?
+  bounds          Unsupported("geometry(Polygon, 4326)")?
+  rotation_deg    Decimal                                 @default(0) @db.Decimal
+  opacity         Decimal                                 @default(0.7) @db.Decimal
+  z_index         Int                                     @default(0)
+  is_active       Boolean                                 @default(true)
+  revision        String?
+  created_by      String?                                 @db.Uuid
+  created_at      DateTime                                @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                                @default(now()) @db.Timestamptz(6)
+  sites           sites                                   @relation(fields: [site_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?                                  @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assets          assets[]
+}
+
+// The registry that drives type-specific fields (CLAUDE.md rule 3 pattern —
+// same idea as log_types.field_schema / inventory_custom_field_defs, applied
+// to asset attributes). attribute_schema is a JSON Schema, validated on
+// write by the application layer, not by Postgres.
+model asset_types {
+  id                        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                      String        @unique
+  name                      String
+  category                  String?
+  parent_type_id            String?       @db.Uuid
+  allowed_geom_types        String[]
+  attribute_schema          Json          @default("{\"type\":\"object\",\"properties\":{}}")
+  ui_schema                 Json?
+  default_useful_life_years Int?
+  icon                      String?
+  color                     String?
+  schema_version            Int           @default(1)
+  is_active                 Boolean       @default(true)
+  created_at                DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime      @default(now()) @db.Timestamptz(6)
+  asset_types               asset_types?  @relation("asset_types_hierarchy", fields: [parent_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_asset_types         asset_types[] @relation("asset_types_hierarchy")
+  assets                    assets[]
+}
+
+// Capital assets — points, lines, or polygons on a site's map (spec 2.1: one
+// geometry column, mixed geometry types, restricted by the
+// assets_geom_type_check constraint and the asset type's allowed_geom_types,
+// enforced by the assets_geom_biu trigger). Photos/docs reuse the existing
+// polymorphic `attachments` table (entity_type = 'asset') rather than a
+// separate asset_attachments table.
+model assets {
+  id                             String                                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  site_id                        String                                   @db.Uuid
+  asset_type_id                  String                                   @db.Uuid
+  parent_id                      String?                                  @db.Uuid
+  tag                            String
+  name                           String
+  description                    String?
+  geom                           Unsupported("geometry(Geometry, 4326)")?
+  geom_type                      String?
+  centroid_lat                   Decimal?                                 @db.Decimal(10, 7)
+  centroid_lon                   Decimal?                                 @db.Decimal(10, 7)
+  elevation_ft                   Decimal?
+  depth_below_grade_ft           Decimal?
+  floor_level                    String?
+  layout_id                      String?                                  @db.Uuid
+  status                         asset_status                             @default(active)
+  condition_rating               Int?                                     @db.SmallInt
+  condition_assessed_on          DateTime?                                @db.Date
+  criticality                    Int?                                     @db.SmallInt
+  manufacturer                   String?
+  model                          String?
+  serial_number                  String?
+  install_date                   DateTime?                                @db.Date
+  in_service_date                DateTime?                                @db.Date
+  expected_life_years            Int?
+  replacement_cost               Decimal?                                 @db.Decimal(14, 2)
+  acquisition_cost               Decimal?                                 @db.Decimal(14, 2)
+  owner_dept                     String?
+  attributes                     Json                                     @default("{}")
+  source                         asset_source?
+  accuracy_ft                    Decimal?
+  created_by                     String?                                  @db.Uuid
+  updated_by                     String?                                  @db.Uuid
+  created_at                     DateTime                                 @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                                 @default(now()) @db.Timestamptz(6)
+  deleted_at                     DateTime?                                @db.Timestamptz(6)
+  sites                          sites                                    @relation(fields: [site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asset_types                    asset_types                              @relation(fields: [asset_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  site_layouts                   site_layouts?                            @relation(fields: [layout_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assets                         assets?                                  @relation("assets_hierarchy", fields: [parent_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  other_assets                   assets[]                                 @relation("assets_hierarchy")
+  users_assets_created_byTousers users?                                   @relation("assets_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_assets_updated_byTousers users?                                   @relation("assets_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  asset_history                  asset_history[]
+
+  @@unique([site_id, tag])
+}
+
+// Append-only audit trail (spec 3.5) — capital asset data feeds financial
+// reporting, so change provenance matters. Written by the service layer.
+model asset_history {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_id      String            @db.Uuid
+  change_type   asset_change_type
+  field_changes Json
+  changed_by    String?           @db.Uuid
+  changed_at    DateTime          @default(now()) @db.Timestamptz(6)
+  assets        assets            @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users?            @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
 // A vendor order. Not everything on a requisition arrives at once - it's
 // fulfilled across multiple partial deliveries over time (see
 // requisition_fulfillment, and img/deliveryLog.png for the source workflow).
@@ -465,24 +606,24 @@ model task_lists {
 }
 
 model tasks {
-  id                             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  list_id                        String           @db.Uuid
-  title                          String
-  description                    String?
-  status                         task_status      @default(to_do)
-  priority                       task_priority?
-  start_date                     DateTime?        @db.Date
-  due_date                       DateTime?        @db.Date
-  project                        String?
-  category                       String?
-  sort_order                     Int              @default(0)
-  created_by                     String?          @db.Uuid
-  created_at                     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at                     DateTime         @default(now()) @db.Timestamptz(6)
-  task_lists                     task_lists       @relation(fields: [list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users_tasks_created_byTousers  users?           @relation("tasks_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  task_assignees                 task_assignees[]
-  task_comments                  task_comments[]
+  id                            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  list_id                       String           @db.Uuid
+  title                         String
+  description                   String?
+  status                        task_status      @default(to_do)
+  priority                      task_priority?
+  start_date                    DateTime?        @db.Date
+  due_date                      DateTime?        @db.Date
+  project                       String?
+  category                      String?
+  sort_order                    Int              @default(0)
+  created_by                    String?          @db.Uuid
+  created_at                    DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime         @default(now()) @db.Timestamptz(6)
+  task_lists                    task_lists       @relation(fields: [list_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_tasks_created_byTousers users?           @relation("tasks_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task_assignees                task_assignees[]
+  task_comments                 task_comments[]
 
   @@index([list_id], map: "idx_tasks_list")
 }
@@ -499,35 +640,40 @@ model task_assignees {
 }
 
 model users {
-  id                             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  azure_ad_oid                   String?                    @unique
-  email                          String                     @unique
-  display_name                   String
-  role                           user_role                  @default(member)
+  id                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  azure_ad_oid                    String?                    @unique
+  email                           String                     @unique
+  display_name                    String
+  role                            user_role                  @default(member)
   // Temporary stopgap until Phase 3 (Azure AD/MSAL) — nullable because
   // Azure AD-provisioned users never get one. See BUILD_PLAN.md working notes.
-  password_hash                  String?
-  created_at                     DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at                     DateTime                   @default(now()) @db.Timestamptz(6)
-  attachments                    attachments[]
-  concrete_credits               concrete_credits[]
-  concrete_pours                 concrete_pours[]
-  deliveries                     deliveries[]
-  drawing_revisions              drawing_revisions[]
-  drawings                       drawings[]
-  inventory_transactions         inventory_transactions[]
-  log_entries                    log_entries[]
-  log_types                      log_types[]
-  mechanical_log_items           mechanical_log_items[]
-  pump_truck_rentals             pump_truck_rentals[]
-  requisitions                   requisitions[]
-  schedule_event_attendees       schedule_event_attendees[]
-  schedule_events                schedule_events[]
-  sessions                       sessions[]
-  task_assignees                 task_assignees[]
-  task_comments                  task_comments[]
-  task_lists                     task_lists[]
-  tasks_tasks_created_byTousers  tasks[]                    @relation("tasks_created_byTousers")
+  password_hash                   String?
+  created_at                      DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime                   @default(now()) @db.Timestamptz(6)
+  attachments                     attachments[]
+  sites                           sites[]
+  site_layouts                    site_layouts[]
+  assets_assets_created_byTousers assets[]                   @relation("assets_created_byTousers")
+  assets_assets_updated_byTousers assets[]                   @relation("assets_updated_byTousers")
+  asset_history                   asset_history[]
+  concrete_credits                concrete_credits[]
+  concrete_pours                  concrete_pours[]
+  deliveries                      deliveries[]
+  drawing_revisions               drawing_revisions[]
+  drawings                        drawings[]
+  inventory_transactions          inventory_transactions[]
+  log_entries                     log_entries[]
+  log_types                       log_types[]
+  mechanical_log_items            mechanical_log_items[]
+  pump_truck_rentals              pump_truck_rentals[]
+  requisitions                    requisitions[]
+  schedule_event_attendees        schedule_event_attendees[]
+  schedule_events                 schedule_events[]
+  sessions                        sessions[]
+  task_assignees                  task_assignees[]
+  task_comments                   task_comments[]
+  task_lists                      task_lists[]
+  tasks_tasks_created_byTousers   tasks[]                    @relation("tasks_created_byTousers")
 }
 
 // Opaque bearer token: the row id itself is the token sent to the client
@@ -554,6 +700,30 @@ view inventory_current_stock {
 view requisition_fulfillment {
   requisition_line_item_id String?  @db.Uuid
   quantity_received        Decimal? @db.Decimal
+}
+
+enum asset_status {
+  planned
+  under_construction
+  active
+  inactive
+  out_of_service
+  abandoned_in_place
+  removed
+}
+
+enum asset_source {
+  field_gps
+  as_built
+  digitized
+  import
+}
+
+enum asset_change_type {
+  create
+  update
+  move
+  delete
 }
 
 enum attendee_response {
