@@ -1685,17 +1685,17 @@ tr.overdue {
 }
 
 .badge-flag-critical {
-  background: rgba(252, 46, 83, 0.12);
+  background: var(--rgba-danger-1);
   color: var(--danger);
 }
 
 .badge-flag-night {
-  background: rgba(214, 83, 193, 0.14);
+  background: var(--rgba-info-1);
   color: var(--info);
 }
 
 .badge-flag-shutdown {
-  background: rgba(255, 94, 75, 0.14);
+  background: var(--rgba-secondary-1);
   color: var(--secondary);
 }
 
@@ -1822,11 +1822,11 @@ thead .gantt-day-cell {
 }
 
 .gantt-weekend {
-  background: #f0f0f0;
+  background: var(--rgba-neutral-1);
 }
 
 .gantt-holiday {
-  background: rgba(255, 207, 109, 0.25);
+  background: var(--rgba-warning-1);
 }
 
 .gantt-totals-row td {
@@ -1867,15 +1867,15 @@ thead .gantt-day-cell {
 }
 
 .gantt-cell.gantt-scheduled.gantt-flag-critical {
-  background: rgba(252, 46, 83, 0.35);
+  background: var(--rgba-danger-2);
 }
 
 .gantt-cell.gantt-scheduled.gantt-flag-shutdown {
-  background: rgba(255, 94, 75, 0.35);
+  background: var(--rgba-secondary-2);
 }
 
 .gantt-cell.gantt-scheduled.gantt-flag-night {
-  background: rgba(214, 83, 193, 0.3);
+  background: var(--rgba-info-2);
 }
 
 .gantt-cell-content {
