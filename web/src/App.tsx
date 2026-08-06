@@ -20,6 +20,7 @@ import { ConcreteMixDesignsPage } from "./pages/ConcreteMixDesignsPage";
 import { ConcreteSettingsPage } from "./pages/ConcreteSettingsPage";
 import { ScheduleActivitiesListPage } from "./pages/ScheduleActivitiesListPage";
 import { ScheduleActivityDetailPage } from "./pages/ScheduleActivityDetailPage";
+import { ScheduleGanttPage } from "./pages/ScheduleGanttPage";
 import { ScheduleSettingsPage } from "./pages/ScheduleSettingsPage";
 import { TasksListPage } from "./pages/TasksListPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -54,6 +55,7 @@ function App() {
           <Route path="/schedule" element={<Navigate to="/schedule/activities" replace />} />
           <Route path="/schedule/activities" element={<ScheduleActivitiesListPage />} />
           <Route path="/schedule/activities/:id" element={<ScheduleActivityDetailPage />} />
+          <Route path="/schedule/lookahead" element={<ScheduleGanttPage />} />
           <Route path="/schedule/settings" element={<ScheduleSettingsPage />} />
           <Route path="/tasks" element={<TasksListPage />} />
           <Route path="/tasks/:id" element={<TasksListPage />} />
