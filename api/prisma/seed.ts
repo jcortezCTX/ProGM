@@ -126,6 +126,14 @@ const CUSTOM_FIELD_DEFS: {
   { field_key: "voltage_phase", label: "Voltage / Phase", field_type: "text", sort_order: 13 },
 ];
 
+// Placeholder for the Asset Tracking module (ccowork/asset-tracking-module-spec.md)
+// until real per-asset-type schemas (valves, pumps, tanks, etc.) are provided.
+const GENERIC_ASSET_TYPE = {
+  code: "generic_asset",
+  name: "Generic Asset",
+  allowed_geom_types: ["Point", "LineString", "Polygon", "MultiPolygon", "MultiLineString"],
+};
+
 async function main() {
   const devPasswordHash = await hashPassword(DEV_USER.password);
   const user = await prisma.users.upsert({
@@ -317,8 +325,14 @@ async function main() {
     });
   }
 
+  await prisma.asset_types.upsert({
+    where: { code: GENERIC_ASSET_TYPE.code },
+    update: {},
+    create: GENERIC_ASSET_TYPE,
+  });
+
   console.log(
-    `Seeded dev user (${user.email}), ${ITEMS.length + 3} inventory items, ${CUSTOM_FIELD_DEFS.length} custom field defs, 1 requisition, 1 delivery.`,
+    `Seeded dev user (${user.email}), ${ITEMS.length + 3} inventory items, ${CUSTOM_FIELD_DEFS.length} custom field defs, 1 requisition, 1 delivery, 1 asset type.`,
   );
 }
 
