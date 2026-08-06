@@ -263,13 +263,24 @@ async function assertGeometryAllowed(assetTypeId: string, geometryType: string):
 // geom_type/centroid and re-checks allowed_geom_types itself, but
 // assertGeometryAllowed runs first so a mismatch comes back as a clean
 // field-level 400 instead of a raw Postgres exception surfacing as a 500.
-async function writeGeometry(assetId: string, geometry: GeoJsonGeometry | null): Promise<void> {
+//
+// Takes a client (plain `prisma` or a `$transaction` callback's `tx`) so
+// createAsset can run the row insert and the geometry write as one
+// transaction - otherwise a geometry that fails ST_GeomFromGeoJSON (e.g. an
+// unclosed polygon ring, which nothing upstream of PostGIS itself rejects)
+// leaves a committed, geometry-less orphan row behind instead of the whole
+// creation failing atomically.
+async function writeGeometry(
+  client: Pick<typeof prisma, "$executeRaw">,
+  assetId: string,
+  geometry: GeoJsonGeometry | null,
+): Promise<void> {
   if (geometry === null) {
-    await prisma.$executeRaw`UPDATE assets SET geom = NULL WHERE id = ${assetId}::uuid`;
+    await client.$executeRaw`UPDATE assets SET geom = NULL WHERE id = ${assetId}::uuid`;
     return;
   }
   try {
-    await prisma.$executeRaw`
+    await client.$executeRaw`
       UPDATE assets
       SET geom = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geometry)}), 4326)
       WHERE id = ${assetId}::uuid
@@ -277,6 +288,19 @@ async function writeGeometry(assetId: string, geometry: GeoJsonGeometry | null):
   } catch (err) {
     throw new ValidationError(`invalid geometry: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+// Postgres trigger exceptions raised during a typed Prisma call (as opposed
+// to $queryRaw/$executeRaw) surface as PrismaClientUnknownRequestError with
+// no structured field to key off - the trigger's own message text is the
+// only signal, so this matches it directly and re-throws as a clean 400
+// instead of leaking a raw Postgres error as an unhandled 500.
+function isAssetHierarchyCycleError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.message.includes("would create a cycle in the asset hierarchy") ||
+      err.message.includes("cannot be its own parent"))
+  );
 }
 
 export interface CreateAssetInput {
@@ -335,39 +359,45 @@ export async function createAsset(siteId: string, input: CreateAssetInput) {
   const clash = await prisma.assets.findUnique({ where: { site_id_tag: { site_id: siteId, tag: input.tag } } });
   if (clash) throw new ConflictError(`tag ${input.tag} already exists at this site`);
 
-  const created = await prisma.assets.create({
-    data: {
-      site_id: siteId,
-      asset_type_id: input.asset_type_id,
-      parent_id: input.parent_id,
-      tag: input.tag,
-      name: input.name,
-      description: input.description,
-      elevation_ft: input.elevation_ft,
-      depth_below_grade_ft: input.depth_below_grade_ft,
-      floor_level: input.floor_level,
-      layout_id: input.layout_id,
-      status: input.status,
-      condition_rating: input.condition_rating,
-      condition_assessed_on: input.condition_assessed_on,
-      criticality: input.criticality,
-      manufacturer: input.manufacturer,
-      model: input.model,
-      serial_number: input.serial_number,
-      install_date: input.install_date,
-      in_service_date: input.in_service_date,
-      expected_life_years: input.expected_life_years,
-      replacement_cost: input.replacement_cost,
-      acquisition_cost: input.acquisition_cost,
-      owner_dept: input.owner_dept,
-      attributes: attributes as Prisma.InputJsonValue,
-      source: input.source,
-      accuracy_ft: input.accuracy_ft,
-      created_by: input.created_by ?? null,
-    },
-  });
+  // Row insert + geometry write are one transaction: a geometry that fails
+  // ST_GeomFromGeoJSON must not leave a committed, geometry-less row behind.
+  const created = await prisma.$transaction(async (tx) => {
+    const createdAsset = await tx.assets.create({
+      data: {
+        site_id: siteId,
+        asset_type_id: input.asset_type_id,
+        parent_id: input.parent_id,
+        tag: input.tag,
+        name: input.name,
+        description: input.description,
+        elevation_ft: input.elevation_ft,
+        depth_below_grade_ft: input.depth_below_grade_ft,
+        floor_level: input.floor_level,
+        layout_id: input.layout_id,
+        status: input.status,
+        condition_rating: input.condition_rating,
+        condition_assessed_on: input.condition_assessed_on,
+        criticality: input.criticality,
+        manufacturer: input.manufacturer,
+        model: input.model,
+        serial_number: input.serial_number,
+        install_date: input.install_date,
+        in_service_date: input.in_service_date,
+        expected_life_years: input.expected_life_years,
+        replacement_cost: input.replacement_cost,
+        acquisition_cost: input.acquisition_cost,
+        owner_dept: input.owner_dept,
+        attributes: attributes as Prisma.InputJsonValue,
+        source: input.source,
+        accuracy_ft: input.accuracy_ft,
+        created_by: input.created_by ?? null,
+      },
+    });
 
-  if (input.geometry) await writeGeometry(created.id, input.geometry);
+    if (input.geometry) await writeGeometry(tx, createdAsset.id, input.geometry);
+
+    return createdAsset;
+  });
 
   return getAsset(created.id);
 }
@@ -467,13 +497,25 @@ export async function updateAsset(
     if (clash) throw new ConflictError(`tag ${input.tag} already exists at this site`);
   }
 
-  await prisma.assets.update({
-    where: { id },
-    data: {
-      ...input,
-      attributes: input.attributes !== undefined ? (attributes as Prisma.InputJsonValue) : undefined,
-    },
-  });
+  try {
+    await prisma.assets.update({
+      where: { id },
+      data: {
+        ...input,
+        attributes: input.attributes !== undefined ? (attributes as Prisma.InputJsonValue) : undefined,
+      },
+    });
+  } catch (err) {
+    // The direct self-parent check above only catches the trivial 1-hop
+    // case; an indirect cycle (A's parent becomes B, where B's parent is
+    // already A) is only caught by the assets_prevent_cycle_trigger DB
+    // trigger, which raises a plain Postgres exception - without this,
+    // that surfaced as an unhandled PrismaClientUnknownRequestError (500).
+    if (isAssetHierarchyCycleError(err)) {
+      throw new ValidationError("parent_id assignment would create a cycle in the asset hierarchy");
+    }
+    throw err;
+  }
 
   return getAsset(id);
 }
@@ -486,7 +528,7 @@ export async function updateAssetGeometry(id: string, geometry: GeoJsonGeometry 
   if (!existing || existing.deleted_at) throw new NotFoundError(`Asset ${id} not found`);
 
   if (geometry) await assertGeometryAllowed(existing.asset_type_id, geometry.type);
-  await writeGeometry(id, geometry);
+  await writeGeometry(prisma, id, geometry);
 
   return getAsset(id);
 }

@@ -128,6 +128,37 @@ describe("createAsset", () => {
       }),
     ).rejects.toThrow(NotFoundError);
   });
+
+  it("rolls back the whole row when the geometry write fails, leaving no orphan asset", async () => {
+    // ST_GeomFromGeoJSON rejects an unclosed polygon ring - nothing upstream
+    // (Zod's `ring` schema only checks length, not closure) catches this,
+    // so it's a real way to hit a geometry failure after Zod passes.
+    const unclosedRing: { type: "Polygon"; coordinates: [number, number][][] } = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-96.7, 32.8],
+          [-96.71, 32.8],
+          [-96.71, 32.81],
+          [-96.7, 32.79],
+        ],
+      ],
+    };
+    const theTag = tag("orphan-rollback");
+
+    await expect(
+      createAsset(siteId, {
+        asset_type_id: genericTypeId,
+        tag: theTag,
+        name: "Should Not Exist",
+        attributes: { size_in: 6, body_material: "brass" },
+        geometry: unclosedRing,
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    const orphan = await prisma.assets.findFirst({ where: { site_id: siteId, tag: theTag } });
+    expect(orphan).toBeNull();
+  });
 });
 
 describe("updateAsset", () => {
@@ -186,6 +217,22 @@ describe("updateAsset", () => {
     assetIds.push(asset.id);
     const updated = await updateAsset(asset.id, { name: "Renamed" } as Record<string, unknown>);
     expect(updated.geom).toBeNull();
+  });
+
+  it("rejects an indirect (multi-hop) parent cycle as a clean ValidationError, not a raw DB error", async () => {
+    // The direct self-parent check only catches parent_id === id. A -> B
+    // already exists here; re-pointing A's parent to B is a 2-hop cycle
+    // that only the assets_prevent_cycle_trigger DB trigger can catch.
+    const a = await createAsset(siteId, { asset_type_id: pointOnlyTypeId, tag: tag("cycle-a"), name: "A" });
+    const b = await createAsset(siteId, {
+      asset_type_id: pointOnlyTypeId,
+      tag: tag("cycle-b"),
+      name: "B",
+      parent_id: a.id,
+    });
+    assetIds.push(a.id, b.id);
+
+    await expect(updateAsset(a.id, { parent_id: b.id })).rejects.toThrow(ValidationError);
   });
 });
 
