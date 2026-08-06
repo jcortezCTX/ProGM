@@ -18,6 +18,10 @@ import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
 import { pumpTruckRentalsRouter } from "./routes/pumpTruckRentals.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
+import { scheduleActivitiesRouter } from "./routes/scheduleActivities.js";
+import { scheduleGanttRouter } from "./routes/scheduleGantt.js";
+import { scheduleHolidaysRouter } from "./routes/scheduleHolidays.js";
+import { scheduleSectionsRouter } from "./routes/scheduleSections.js";
 import { sitesRouter } from "./routes/sites.js";
 import { taskListsRouter } from "./routes/taskLists.js";
 import { tasksRouter } from "./routes/tasks.js";
@@ -56,6 +60,10 @@ app.use("/api/sites", requireAuth, sitesRouter);
 app.use("/api/sites", requireAuth, siteAssetsRouter);
 app.use("/api/assets", requireAuth, assetsRouter);
 app.use("/api/asset-types", requireAuth, assetTypesRouter);
+app.use("/api/schedule/sections", requireAuth, scheduleSectionsRouter);
+app.use("/api/schedule/activities", requireAuth, scheduleActivitiesRouter);
+app.use("/api/schedule/holidays", requireAuth, scheduleHolidaysRouter);
+app.use("/api/schedule/gantt", requireAuth, scheduleGanttRouter);
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's
