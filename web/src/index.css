@@ -1664,3 +1664,37 @@ tr.overdue {
   gap: 0.4rem;
   align-items: center;
 }
+
+/* Schedule module — Activities list flag badges + 6 Week Lookahead Gantt.
+   Color mapping (no hardcoded hex, tokens only): critical path -> --danger
+   (matches the Excel's red), shutdown -> --secondary (closest distinct accent
+   to the Excel's blue), night work -> --info (closest distinct accent to a
+   dark/contrast fill). Weekend/holiday shading uses neutral + --warning tints
+   so it reads as "non-working day" without competing with the flag colors. */
+
+.badge-flag-critical,
+.badge-flag-night,
+.badge-flag-shutdown {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-flag-critical {
+  background: rgba(252, 46, 83, 0.12);
+  color: var(--danger);
+}
+
+.badge-flag-night {
+  background: rgba(214, 83, 193, 0.14);
+  color: var(--info);
+}
+
+.badge-flag-shutdown {
+  background: rgba(255, 94, 75, 0.14);
+  color: var(--secondary);
+}
