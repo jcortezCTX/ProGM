@@ -1584,6 +1584,19 @@ tr.overdue {
   z-index: 20;
 }
 
+/* Used while editing an asset's geometry on the map (AssetDetailPanel's
+   "Move on map"): the backdrop must not swallow clicks/drags meant for the
+   map underneath it, but the panel itself (buttons, fields) still needs to
+   work normally. */
+.panel-overlay-passthrough {
+  background: transparent;
+  pointer-events: none;
+}
+
+.panel-overlay-passthrough .panel {
+  pointer-events: auto;
+}
+
 .panel {
   width: min(560px, 100%);
   height: 100%;
@@ -1663,4 +1676,45 @@ tr.overdue {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
+}
+
+/* Asset Tracking map page */
+.map-page-layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.map-toolbar {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+.map-toolbar h3 {
+  margin-top: 0;
+}
+
+.map-draw-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.map-container {
+  flex: 1;
+  height: calc(100vh - 220px);
+  min-height: 480px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  z-index: 0;
+}
+
+.asset-dot-icon span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }

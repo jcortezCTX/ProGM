@@ -2,12 +2,23 @@ import { clearToken, getToken } from "../auth/token";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
 
+export interface ApiFieldError {
+  path: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   status: number;
+  // Populated when the API's error body includes a `fields` array (e.g.
+  // asset attribute/geometry validation - spec 5.1: "return field-level
+  // validation errors, not a generic 400"). Undefined for every other
+  // error shape, which is still just `{ error: string }`.
+  fields?: ApiFieldError[];
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, fields?: ApiFieldError[]) {
     super(message);
     this.status = status;
+    this.fields = fields;
   }
 }
 
@@ -43,7 +54,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, body.error ?? res.statusText);
+    throw new ApiError(res.status, body.error ?? res.statusText, body.fields);
   }
 
   if (res.status === 204) {
