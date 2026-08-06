@@ -2,6 +2,8 @@ import "dotenv/config";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import { requireAuth } from "./middleware/auth.js";
+import { assetTypesRouter } from "./routes/assetTypes.js";
+import { assetsRouter, siteAssetsRouter } from "./routes/assets.js";
 import { attachmentsRouter } from "./routes/attachments.js";
 import { authRouter } from "./routes/auth.js";
 import { concreteCreditsRouter } from "./routes/concreteCredits.js";
@@ -16,6 +18,7 @@ import { inventoryRouter } from "./routes/inventory.js";
 import { mechanicalLogRouter } from "./routes/mechanicalLog.js";
 import { pumpTruckRentalsRouter } from "./routes/pumpTruckRentals.js";
 import { requisitionsRouter } from "./routes/requisitions.js";
+import { sitesRouter } from "./routes/sites.js";
 import { taskListsRouter } from "./routes/taskLists.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { usersRouter } from "./routes/users.js";
@@ -49,6 +52,10 @@ app.use("/api/attachments", attachmentsRouter);
 app.use("/api/drawings", drawingsRouter);
 app.use("/api/task-lists", requireAuth, taskListsRouter);
 app.use("/api/tasks", requireAuth, tasksRouter);
+app.use("/api/sites", requireAuth, sitesRouter);
+app.use("/api/sites", requireAuth, siteAssetsRouter);
+app.use("/api/assets", requireAuth, assetsRouter);
+app.use("/api/asset-types", requireAuth, assetTypesRouter);
 
 // Catches malformed JSON bodies from express.json() before they hit Express's
 // default HTML error page, which leaks a stack trace and breaks the API's
