@@ -123,8 +123,8 @@ model assets {
   geom_type                      String?
   centroid_lat                   Decimal?                                 @db.Decimal(10, 7)
   centroid_lon                   Decimal?                                 @db.Decimal(10, 7)
-  elevation_ft                   Decimal?
-  depth_below_grade_ft           Decimal?
+  elevation_ft                   Decimal?                                 @db.Decimal
+  depth_below_grade_ft           Decimal?                                 @db.Decimal
   floor_level                    String?
   layout_id                      String?                                  @db.Uuid
   status                         asset_status                             @default(active)
@@ -142,7 +142,7 @@ model assets {
   owner_dept                     String?
   attributes                     Json                                     @default("{}")
   source                         asset_source?
-  accuracy_ft                    Decimal?
+  accuracy_ft                    Decimal?                                 @db.Decimal
   created_by                     String?                                  @db.Uuid
   updated_by                     String?                                  @db.Uuid
   created_at                     DateTime                                 @default(now()) @db.Timestamptz(6)
@@ -150,7 +150,7 @@ model assets {
   deleted_at                     DateTime?                                @db.Timestamptz(6)
   sites                          sites                                    @relation(fields: [site_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   asset_types                    asset_types                              @relation(fields: [asset_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  site_layouts                   site_layouts?                            @relation(fields: [layout_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  site_layouts                   site_layouts?                            @relation(fields: [layout_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   assets                         assets?                                  @relation("assets_hierarchy", fields: [parent_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   other_assets                   assets[]                                 @relation("assets_hierarchy")
   users_assets_created_byTousers users?                                   @relation("assets_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)

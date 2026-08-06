@@ -217,7 +217,7 @@ ALTER TABLE "assets" ADD CONSTRAINT "assets_asset_type_id_fkey" FOREIGN KEY ("as
 ALTER TABLE "assets" ADD CONSTRAINT "assets_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "assets"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE "assets" ADD CONSTRAINT "assets_layout_id_fkey" FOREIGN KEY ("layout_id") REFERENCES "site_layouts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "assets" ADD CONSTRAINT "assets_layout_id_fkey" FOREIGN KEY ("layout_id") REFERENCES "site_layouts"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "assets" ADD CONSTRAINT "assets_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
