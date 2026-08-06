@@ -46,7 +46,7 @@ app.use("/api/users", usersRouter); // admin-only, enforced inside the router
 // :id/file route is loaded via a plain <img src>, which can't carry a
 // bearer token.
 app.use("/api/attachments", attachmentsRouter);
-app.use("/api/drawings", drawingsRouter);
+app.use("/api/drawings", requireAuth, drawingsRouter);
 app.use("/api/task-lists", requireAuth, taskListsRouter);
 app.use("/api/tasks", requireAuth, tasksRouter);
 
