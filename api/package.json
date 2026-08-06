@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
+    "ajv": "^8.20.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
