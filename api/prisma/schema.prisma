@@ -556,6 +556,70 @@ model log_types {
   users        users?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+// Schedule module (6 Week Lookahead). Deliberately independent of
+// schedule_events (meetings/calendar) and of tasks - see SCHEDULE_SPEC.md.
+model schedule_sections {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                @unique
+  sort_order          Int
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+  schedule_activities schedule_activities[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model schedule_activities {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  section_id             String                   @db.Uuid
+  code                   String?
+  description            String
+  crew                   String?
+  responsibility         String?
+  notes                  String?
+  budget_mh              Decimal?                 @db.Decimal
+  burned_mh              Decimal?                 @db.Decimal
+  entry_mode             schedule_entry_mode
+  start_date             DateTime?                @db.Date
+  end_date               DateTime?                @db.Date
+  duration_days          Int?
+  night_work             Boolean                  @default(false)
+  critical_path          Boolean                  @default(false)
+  shutdown               Boolean                  @default(false)
+  sort_order             Int
+  created_by             String?                  @db.Uuid
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
+  schedule_sections      schedule_sections        @relation(fields: [section_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                  users?                   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  schedule_activity_days schedule_activity_days[]
+
+  @@index([section_id], map: "idx_schedule_activities_section")
+  @@index([start_date], map: "idx_schedule_activities_start_date")
+}
+
+// Per-day override relative to the generated day set (see day-set resolution
+// in the service layer). A row can exist purely to carry crew_count/marker
+// on an already-generated day via kind = add - idempotent, changes nothing
+// about the resolved day set.
+model schedule_activity_days {
+  activity_id         String                     @db.Uuid
+  day                 DateTime                   @db.Date
+  kind                schedule_activity_day_kind
+  crew_count          Int?
+  marker              String?
+  schedule_activities schedule_activities        @relation(fields: [activity_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([activity_id, day])
+}
+
+model schedule_holidays {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  day        DateTime @unique @db.Date
+  name       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
 model schedule_event_attendees {
   event_id        String            @db.Uuid
   user_id         String            @db.Uuid
@@ -667,6 +731,7 @@ model users {
   mechanical_log_items            mechanical_log_items[]
   pump_truck_rentals              pump_truck_rentals[]
   requisitions                    requisitions[]
+  schedule_activities             schedule_activities[]
   schedule_event_attendees        schedule_event_attendees[]
   schedule_events                 schedule_events[]
   sessions                        sessions[]
@@ -788,4 +853,14 @@ enum user_role {
   admin
   manager
   member
+}
+
+enum schedule_entry_mode {
+  start_end
+  start_duration
+}
+
+enum schedule_activity_day_kind {
+  add
+  exclude
 }
