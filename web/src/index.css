@@ -1303,6 +1303,28 @@ tr.overdue {
   color: var(--text-muted);
 }
 
+/* Schedule Activities date-range filter: the two custom-range inputs and the
+   read-only resolved range shown beside a preset. */
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.date-range-inputs input {
+  width: auto;
+}
+
+.date-range-sep {
+  color: var(--text-muted);
+}
+
+.date-range-resolved {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .checkbox-filter input {
   width: auto;
 }

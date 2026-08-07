@@ -7,6 +7,12 @@ import { ColumnPicker } from "../components/ColumnPicker";
 import { ScheduleNav } from "../components/ScheduleNav";
 import { DataTable } from "../components/DataTable";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
+import {
+  DATE_RANGE_PRESETS,
+  type DateRangePresetId,
+  resolveDateRangePreset,
+  toScheduledBetween,
+} from "../lib/dateRangePresets";
 
 function num(value: string | null): string {
   if (value === null) return "—";
@@ -43,6 +49,19 @@ export function ScheduleActivitiesListPage() {
   const [criticalPath, setCriticalPath] = useState(false);
   const [shutdown, setShutdown] = useState(false);
 
+  // "" = no date filter, "custom" = the two date inputs, otherwise a preset id.
+  const [rangeMode, setRangeMode] = useState<"" | "custom" | DateRangePresetId>("");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const dateRange = useMemo(() => {
+    if (rangeMode === "") return null;
+    if (rangeMode === "custom") return { from: customFrom, to: customTo };
+    return resolveDateRangePreset(rangeMode);
+  }, [rangeMode, customFrom, customTo]);
+
+  const scheduledBetween = toScheduledBetween(dateRange);
+
   useEffect(() => {
     listSections()
       .then((res) => setSections(res.data))
@@ -63,6 +82,7 @@ export function ScheduleActivitiesListPage() {
       night_work: nightWork || undefined,
       critical_path: criticalPath || undefined,
       shutdown: shutdown || undefined,
+      scheduled_between: scheduledBetween,
     })
       .then((res) => {
         setRows(res.data);
@@ -70,7 +90,7 @@ export function ScheduleActivitiesListPage() {
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load activities"))
       .finally(() => setIsLoading(false));
-  }, [sectionId, responsibility, crew, nightWork, criticalPath, shutdown]);
+  }, [sectionId, responsibility, crew, nightWork, criticalPath, shutdown, scheduledBetween]);
 
   const sectionsById = useMemo(() => new Map(sections.map((s) => [s.id, s.name])), [sections]);
   const responsibilities = useMemo(
@@ -145,6 +165,45 @@ export function ScheduleActivitiesListPage() {
               </option>
             ))}
           </select>
+          <select
+            value={rangeMode}
+            onChange={(e) => setRangeMode(e.target.value as "" | "custom" | DateRangePresetId)}
+            aria-label="Scheduled date range"
+          >
+            <option value="">Any dates</option>
+            {DATE_RANGE_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+            <option value="custom">Custom range…</option>
+          </select>
+          {rangeMode === "custom" && (
+            <span className="date-range-inputs">
+              <input
+                type="date"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                aria-label="Scheduled from"
+              />
+              <span className="date-range-sep">–</span>
+              <input
+                type="date"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+                aria-label="Scheduled to"
+              />
+            </span>
+          )}
+          {/* Presets resolve to real dates the moment they are picked; showing
+              them avoids a filter whose effect the user has to guess at. */}
+          {dateRange && rangeMode !== "custom" && (
+            <span className="date-range-resolved">
+              {dateRange.from} – {dateRange.to}
+            </span>
+          )}
           <label className="checkbox-filter">
             <input type="checkbox" checked={criticalPath} onChange={(e) => setCriticalPath(e.target.checked)} />
             Critical path
