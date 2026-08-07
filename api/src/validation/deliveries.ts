@@ -25,10 +25,13 @@ export const updateDeliverySchema = z.object({
   accepted_by: z.string().min(1).nullable().optional(),
 });
 
+// Receiving is normally driven off the Mechanical Log; inventory_item_id is
+// the escape hatch for the ~10% of material that was never on it. At least one
+// must be present - the service must never invent an item from nothing (§5.2).
 export const addDeliveryLineItemSchema = z
   .object({
-    requisition_line_item_id: z.string().uuid().optional(),
-    inventory_item_id: z.string().uuid(),
+    mechanical_log_item_id: z.string().uuid().optional(),
+    inventory_item_id: z.string().uuid().optional(),
     shipment_number: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
     quantity_received: decimalString,
@@ -41,7 +44,30 @@ export const addDeliveryLineItemSchema = z
   .refine((body) => Number(body.quantity_received) > 0, {
     message: "quantity_received must be a positive number",
     path: ["quantity_received"],
+  })
+  .refine((body) => Boolean(body.mechanical_log_item_id ?? body.inventory_item_id), {
+    message: "Either mechanical_log_item_id or inventory_item_id is required",
+    path: ["mechanical_log_item_id"],
   });
+
+export const updateDeliveryLineItemSchema = z
+  .object({
+    quantity_received: decimalString.optional(),
+    disposition: z.enum(["accept", "conditional_use", "reject"]).optional(),
+    condition: z.string().min(1).nullable().optional(),
+    properly_marked: z.boolean().nullable().optional(),
+    note: z.string().min(1).nullable().optional(),
+    location: z.string().min(1).optional(),
+  })
+  .refine((body) => body.quantity_received === undefined || Number(body.quantity_received) > 0, {
+    message: "quantity_received must be a positive number",
+    path: ["quantity_received"],
+  });
+
+export const lineItemIdParamSchema = z.object({
+  id: z.string().uuid(),
+  lineItemId: z.string().uuid(),
+});
 
 export const idParamSchema = z.object({
   id: z.string().uuid(),

@@ -393,6 +393,16 @@ export async function getItem(itemId: string) {
   const { inventory_item_tags, ...rest } = item;
   const stockRows = await stockRowsForItem(itemId);
   const quantityOnHand = totalStock(stockRows);
+
+  // Source rows (spec §7.4): ~90% of inventory originates on the Mechanical
+  // Log. There can be several rows per item - the same tag legitimately
+  // recurs across releases and they converge on one item (invariant §8.5).
+  const sourceRows = await prisma.mechanical_log_items.findMany({
+    where: { inventory_item_id: itemId },
+    include: { requisitions: true },
+    orderBy: [{ release: "asc" }, { id: "asc" }],
+  });
+
   return {
     ...rest,
     quantity_on_hand: quantityOnHand,
@@ -402,6 +412,15 @@ export async function getItem(itemId: string) {
       quantity_on_hand: row.quantity_on_hand ?? new Prisma.Decimal(0),
     })),
     tags: inventory_item_tags.map((it) => it.inventory_tags.name),
+    mechanical_log_sources: sourceRows.map((row) => ({
+      id: row.id,
+      tag_number: row.tag_number,
+      description: row.description,
+      release: row.release,
+      qty_released: row.qty_released,
+      requisition_id: row.requisition_id,
+      requisition_number: row.requisitions?.requisition_number ?? null,
+    })),
   };
 }
 

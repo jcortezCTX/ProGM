@@ -9,6 +9,9 @@ export function listRequisitions(
   return apiFetch(`/requisitions${buildQueryString(params)}`);
 }
 
+// mapWriteError on the backend surfaces both a 409 (already claimed by
+// another requisition) and 404 (unknown log row id) - the caller displays
+// whatever ApiError.message comes back.
 export function createRequisition(input: CreateRequisitionInput): Promise<RequisitionDetail> {
   return apiFetch("/requisitions", {
     method: "POST",

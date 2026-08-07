@@ -11,14 +11,21 @@ import { createRequisition, listRequisitions } from "./requisitionService.js";
 // files' module-level Date.now() calls can land in the same millisecond.
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const marker = `MARK${runId}`;
-const sku = `TEST-REQLIST-ITEM-${runId}`;
-const ids: string[] = [];
-let itemId: string;
+const logItemIds: string[] = [];
+const requisitionIds: string[] = [];
+let itemId: string | null = null;
 let deliveryId: string;
 
 beforeAll(async () => {
-  const item = await prisma.inventory_items.create({ data: { sku, name: "Vitest test item", unit: "each" } });
-  itemId = item.id;
+  // A requisition's line items ARE its Mechanical Log rows (spec §3.2), so the
+  // fixture data lives there instead of a standalone requisition_line_items row.
+  const logR1 = await prisma.mechanical_log_items.create({
+    data: { tag_number: `TEST-REQLIST-TAG-${runId}`, qty_released: 10, unit: "each", notes: marker, release: "1" },
+  });
+  const logR2 = await prisma.mechanical_log_items.create({
+    data: { tag_number: `TEST-REQLIST-TAG2-${runId}`, qty_released: 5, unit: "each", notes: marker, release: "2" },
+  });
+  logItemIds.push(logR1.id, logR2.id);
 
   // R1 has a supplier and a line item that's partially fulfilled; R2 has no
   // supplier (nullable sort field exercised); R3 has a supplier but no line
@@ -27,38 +34,38 @@ beforeAll(async () => {
     requisition_number: `TEST-REQ-LIST-${runId}-1`,
     supplier: `Marker-${runId} Co`,
     notes: marker,
-    line_items: [{ inventory_item_id: itemId, quantity_ordered: 10 }],
+    mechanical_log_item_ids: [logR1.id],
   });
   const r2 = await createRequisition({
     requisition_number: `TEST-REQ-LIST-${runId}-2`,
     notes: marker,
-    line_items: [{ inventory_item_id: itemId, quantity_ordered: 5 }],
+    mechanical_log_item_ids: [logR2.id],
   });
   const r3 = await createRequisition({
     requisition_number: `TEST-REQ-LIST-${runId}-3`,
     supplier: `Marker-${runId} Co`,
     notes: marker,
   });
-  ids.push(r1.id, r2.id, r3.id);
+  requisitionIds.push(r1.id, r2.id, r3.id);
 
   const delivery = await createDelivery({ requisition_id: r1.id });
   deliveryId = delivery.id;
-  await addDeliveryLineItem(deliveryId, {
-    requisition_line_item_id: r1.requisition_line_items[0].id,
-    inventory_item_id: itemId,
+  const result = await addDeliveryLineItem(deliveryId, {
+    mechanical_log_item_id: logR1.id,
     quantity_received: 4,
     disposition: "accept",
     location: "test-loc",
   });
+  itemId = result.inventory_item.id;
 });
 
 afterAll(async () => {
-  await prisma.inventory_transactions.deleteMany({ where: { item_id: itemId } });
+  if (itemId) await prisma.inventory_transactions.deleteMany({ where: { item_id: itemId } });
   await prisma.delivery_line_items.deleteMany({ where: { delivery_id: deliveryId } });
   await prisma.deliveries.delete({ where: { id: deliveryId } });
-  await prisma.requisition_line_items.deleteMany({ where: { requisition_id: { in: ids } } });
-  await prisma.requisitions.deleteMany({ where: { id: { in: ids } } });
-  await prisma.inventory_items.delete({ where: { id: itemId } });
+  await prisma.mechanical_log_items.deleteMany({ where: { id: { in: logItemIds } } });
+  await prisma.requisitions.deleteMany({ where: { id: { in: requisitionIds } } });
+  if (itemId) await prisma.inventory_items.deleteMany({ where: { id: itemId } });
 });
 
 describe("listRequisitions pagination", () => {
@@ -72,7 +79,7 @@ describe("listRequisitions pagination", () => {
       cursor = res.nextCursor ?? undefined;
     }
     expect(new Set(seen).size).toBe(seen.length);
-    expect(seen.sort()).toEqual([...ids].sort());
+    expect(seen.sort()).toEqual([...requisitionIds].sort());
   });
 
   it("sorts asc by supplier with the unset (null) supplier last", async () => {
@@ -108,5 +115,16 @@ describe("listRequisitions pagination", () => {
   it("returns an empty page (not an error) when nothing matches the search", async () => {
     const res = await listRequisitions({ limit: 50, order: "asc", q: `no-such-thing-${runId}` });
     expect(res).toEqual({ data: [], hasMore: false, nextCursor: null });
+  });
+});
+
+describe("createRequisition claims Mechanical Log rows (spec §5.1)", () => {
+  it("409s when a log row is already claimed by a different requisition", async () => {
+    await expect(
+      createRequisition({
+        requisition_number: `TEST-REQ-LIST-${runId}-conflict`,
+        mechanical_log_item_ids: [logItemIds[0]], // already on r1
+      }),
+    ).rejects.toThrow(/already on another requisition/i);
   });
 });

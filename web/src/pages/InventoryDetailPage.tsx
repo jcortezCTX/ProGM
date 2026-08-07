@@ -411,6 +411,49 @@ export function InventoryDetailPage() {
         </div>
       </form>
 
+      {/* Source (spec §7.4): the Mechanical Log rows that claimed this item -
+          there can be several, since the same tag legitimately recurs across
+          releases and they converge on one inventory item (invariant §8.5). */}
+      {item.mechanical_log_sources.length > 0 && (
+        <section id="source" className="detail-section">
+          <h2>Source</h2>
+          <p className="muted">
+            Mechanical Log rows this item was created or claimed from. ~90% of Inventory originates on the
+            Mechanical Log (MATERIAL_FLOW_SPEC.md).
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Tag</th>
+                <th>Description</th>
+                <th>Release</th>
+                <th>Requisition</th>
+                <th>Qty released</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.mechanical_log_sources.map((source) => (
+                <tr key={source.id}>
+                  <td>
+                    <Link to={`/mechanical-log/${source.id}`}>{source.tag_number ?? "(no tag)"}</Link>
+                  </td>
+                  <td>{source.description ?? "—"}</td>
+                  <td>{source.release ?? "—"}</td>
+                  <td>
+                    {source.requisition_id ? (
+                      <Link to={`/requisitions/${source.requisition_id}`}>{source.requisition_number}</Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>{source.qty_released ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       <section id="stock-movements" className="detail-section">
         <h2>Stock Movements</h2>
         <p className="muted">

@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { buildListQuerySchema } from "./listQuery.js";
 
-export const mechanicalLogListQuerySchema = buildListQuerySchema([
-  "tag_number",
-  "due_date",
-  "created_at",
-] as const);
+export const mechanicalLogListQuerySchema = buildListQuerySchema(["tag_number", "due_date", "created_at"] as const, {
+  // The receiving picker defaults to the delivery's own requisition and widens
+  // from there (§7.1); `unreleased` finds rows not yet on any requisition.
+  requisition_id: z.string().uuid().optional(),
+  unreleased: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+});
 
 const decimal = z.union([z.number(), z.string()]).nullable().optional();
 const text = z.string().min(1).nullable().optional();
@@ -16,6 +20,9 @@ const date = z.string().min(1).nullable().optional();
 // number at all), and PATCH semantics (omit vs. explicit null) match the
 // rest of the API.
 export const mechanicalLogItemSchema = z.object({
+  // Settable from the Requisition UI. inventory_item_id is intentionally NOT
+  // here - it is claimed once at first receipt and is not user-editable (§4.1).
+  requisition_id: z.string().uuid().nullable().optional(),
   release: text,
   supplier: text,
   review: text,

@@ -62,6 +62,16 @@ export interface InventoryItem {
   tags: string[];
 }
 
+export interface MechanicalLogSource {
+  id: string;
+  tag_number: string | null;
+  description: string | null;
+  release: string | null;
+  qty_released: string | null;
+  requisition_id: string | null;
+  requisition_number: string | null;
+}
+
 export interface InventoryItemDetail {
   id: string;
   sku: string;
@@ -80,6 +90,10 @@ export interface InventoryItemDetail {
   total_value: string;
   stock_by_location: { location: string; quantity_on_hand: string }[];
   tags: string[];
+  // The Mechanical Log rows that claimed this item (spec §7.4) - can be
+  // several: the same tag legitimately recurs across releases and they
+  // converge on one inventory item (invariant §8.5).
+  mechanical_log_sources: MechanicalLogSource[];
 }
 
 export type InventoryTransactionType = "received" | "issued" | "adjustment" | "delivered_out";
@@ -160,10 +174,16 @@ export interface CreateCustomFieldDefInput {
   sort_order?: number;
 }
 
-// A requisition is an internal ID for an order sent to a vendor. It's
-// typically fulfilled across many partial deliveries over time, not one
-// truck — quantity_received here is derived (summed from accepted/
-// conditional_use delivery line items), never stored.
+// Derived receipt status for a Mechanical Log row (MATERIAL_FLOW_SPEC.md
+// §4.3) - never stored, computed server-side from accepted/conditional_use
+// delivery lines against qty_released.
+export type FulfillmentStatus = "not_received" | "partial" | "complete";
+
+// A requisition is cut from the Mechanical Log - Release number IS the
+// requisition number (spec §2). It's typically fulfilled across many partial
+// deliveries over time, not one truck. quantity_ordered/quantity_received
+// here are derived (rolled up from the requisition's Mechanical Log rows),
+// never stored.
 export interface Requisition {
   id: string;
   requisition_number: string;
@@ -177,16 +197,36 @@ export interface Requisition {
   quantity_received: string;
 }
 
+// A requisition's line items ARE its Mechanical Log rows (spec §3.2) - there
+// is no separate requisition_line_items entity anymore.
 export interface RequisitionLineItem {
   id: string;
-  requisition_id: string;
-  inventory_item_id: string;
+  tag_number: string | null;
   description: string | null;
-  quantity_ordered: string;
-  created_at: string;
-  item_sku: string;
-  item_name: string;
+  qty_released: string | null;
+  unit: string | null;
+  inventory_item_id: string | null;
+  item_sku: string | null;
+  item_name: string | null;
   quantity_received: string;
+  quantity_outstanding: string;
+  fulfillment_status: FulfillmentStatus;
+}
+
+// The raw delivery row, not the list-endpoint's enriched Delivery (no
+// requisition_number/line_item_count - those are computed by listDeliveries,
+// not by getRequisition's nested include).
+export interface RequisitionDeliverySummary {
+  id: string;
+  report_number: number;
+  requisition_id: string | null;
+  supplier: string | null;
+  bill_of_lading_no: string | null;
+  truck_number: string | null;
+  received_date: string;
+  status: DeliveryStatus;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RequisitionDetail {
@@ -198,19 +238,21 @@ export interface RequisitionDetail {
   created_at: string;
   updated_at: string;
   line_items: RequisitionLineItem[];
-}
-
-export interface CreateRequisitionLineItemInput {
-  inventory_item_id: string;
-  description?: string;
+  deliveries: RequisitionDeliverySummary[];
   quantity_ordered: string;
+  quantity_received: string;
+  quantity_outstanding: string;
+  fulfillment_status: FulfillmentStatus;
 }
 
+// requisition_number stays free-text, never coerced to an integer (spec
+// §5.1). A requisition claims existing Mechanical Log rows rather than being
+// given its own ordered quantities.
 export interface CreateRequisitionInput {
   requisition_number: string;
   supplier?: string;
   notes?: string;
-  line_items?: CreateRequisitionLineItemInput[];
+  mechanical_log_item_ids?: string[];
 }
 
 export type DeliveryStatus = "open" | "closed";
@@ -242,7 +284,7 @@ export interface Delivery {
 export interface DeliveryLineItem {
   id: string;
   delivery_id: string;
-  requisition_line_item_id: string | null;
+  mechanical_log_item_id: string | null;
   inventory_item_id: string;
   shipment_number: string | null;
   description: string | null;
@@ -254,6 +296,20 @@ export interface DeliveryLineItem {
   created_at: string;
   item_sku: string;
   item_name: string;
+  item_unit: string;
+  // Present only when mechanical_log_item_id is set - the ~10% of off-log
+  // receipts have none of these (spec §3.1).
+  tag_number: string | null;
+  log_description: string | null;
+  qty_released: string | null;
+  // The LOG ROW's cumulative totals across every delivery line that has hit
+  // it - not this line's own `quantity_received` above, which is why it's
+  // nested rather than flattened onto the line.
+  log_fulfillment: {
+    quantity_received: string;
+    quantity_outstanding: string;
+    fulfillment_status: FulfillmentStatus;
+  } | null;
 }
 
 export interface DeliveryDetail {
@@ -295,9 +351,11 @@ export interface UpdateDeliveryInput {
   accepted_by?: string | null;
 }
 
+// Receiving is normally driven off the Mechanical Log; inventory_item_id is
+// the escape hatch for the ~10% of material that was never on it (spec §5.2).
 export interface AddDeliveryLineItemInput {
-  requisition_line_item_id?: string;
-  inventory_item_id: string;
+  mechanical_log_item_id?: string;
+  inventory_item_id?: string;
   shipment_number?: string;
   description?: string;
   quantity_received: string;
@@ -306,6 +364,20 @@ export interface AddDeliveryLineItemInput {
   disposition: DeliveryLineDisposition;
   note?: string;
   location?: string;
+}
+
+// What the receiving screen needs to tell the user which of the two
+// happened - "Created inventory item ABC-123" vs. "Updated stock: ABC-123 ->
+// 78 LF" (spec §7.1) - plus the over-receipt warning, which is informational
+// rather than blocking.
+export interface AddDeliveryLineItemResult {
+  line_item: DeliveryLineItem;
+  inventory_item: { id: string; sku: string; name: string; unit: string };
+  inventory_item_created: boolean;
+  quantity_on_hand: string;
+  warning: "over_received" | null;
+  ordered: string | null;
+  received_to_date: string | null;
 }
 
 export type DrawingStatus = "draft" | "in_review" | "approved" | "superseded";
@@ -395,9 +467,13 @@ export interface Attachment {
 }
 
 // One row per released tag/spool from the real "Mechanical Log" Excel export
-// (logs_samples/Mechanical Log.csv) - a dedicated log, not linked to
-// inventory_items or delivery_line_items. All fields are nullable: the
-// source data itself is sparse (many rows have no tag number at all).
+// (logs_samples/Mechanical Log.csv). This is the HEAD of the material chain
+// (MATERIAL_FLOW_SPEC.md): requisitions are cut from it (Release IS the
+// requisition number) and deliveries receive against it. All source-CSV
+// fields are nullable: the data itself is sparse (many rows have no tag
+// number at all). delivered_qty/need_qty/received_on/received_by are frozen
+// import history - the live numbers are quantity_received/quantity_outstanding/
+// fulfillment_status below, from the Delivery Log.
 export interface MechanicalLogItem {
   id: string;
   release: string | null;
@@ -436,12 +512,49 @@ export interface MechanicalLogItem {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Nullable forever - blank/EMAIL/Hold releases stay unclaimed (spec §3.3).
+  requisition_id: string | null;
+  // Null until first receipt, then claimed once by the receiving service and
+  // not user-editable (spec §4.1).
+  inventory_item_id: string | null;
+}
+
+// Fields the list/detail endpoints add on top of the raw row - all derived,
+// never stored (spec §4.3).
+export interface MechanicalLogItemWithFulfillment extends MechanicalLogItem {
+  requisition_number: string | null;
+  item_sku: string | null;
+  quantity_received: string;
+  quantity_outstanding: string;
+  fulfillment_status: FulfillmentStatus;
+}
+
+export interface MechanicalLogDeliveryLine {
+  id: string;
+  delivery_id: string;
+  report_number: number;
+  received_date: string;
+  quantity_received: string;
+  disposition: DeliveryLineDisposition;
+  note: string | null;
+}
+
+// Detail view adds the Procurement panel data (spec §7.2): the requisition
+// this row was released on, the item it resolved to, and every delivery
+// line that has hit it.
+export interface MechanicalLogItemDetail extends MechanicalLogItemWithFulfillment {
+  item_name: string | null;
+  delivery_lines: MechanicalLogDeliveryLine[];
 }
 
 // Same shape for create and update (PATCH semantics: omit to leave
-// unchanged, null to clear).
+// unchanged, null to clear). inventory_item_id is intentionally absent - not
+// user-editable in v1.
 export type MechanicalLogItemInput = Partial<
-  Omit<MechanicalLogItem, "id" | "created_by" | "created_at" | "updated_at">
+  Omit<
+    MechanicalLogItem,
+    "id" | "created_by" | "created_at" | "updated_at" | "inventory_item_id"
+  >
 >;
 
 // ---- Concrete Log (see CONCRETE_LOG_SPEC.md) ----
