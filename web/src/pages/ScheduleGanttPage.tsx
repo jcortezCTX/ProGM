@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { getGantt, listActivities } from "../api/schedule";
+import { downloadGanttPdf, getGantt, listActivities } from "../api/schedule";
 import type { ScheduleGanttActivity, ScheduleGanttCell, ScheduleGanttDay, ScheduleGanttResponse } from "../api/types";
 import { ScheduleDayCellEditor } from "../components/ScheduleDayCellEditor";
 import { ScheduleNav } from "../components/ScheduleNav";
@@ -75,6 +75,8 @@ export function ScheduleGanttPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const load = useCallback((start: string | undefined) => {
     setLoading(true);
@@ -114,6 +116,17 @@ export function ScheduleGanttPage() {
     setRequestedStart(undefined);
   }
 
+  function exportPdf() {
+    if (!data) return;
+    setExporting(true);
+    setExportError(null);
+    // Exports the window currently on screen, not the requested start - those
+    // differ whenever the API snapped the start back to its Sunday.
+    downloadGanttPdf({ start: data.window.start, weeks: data.window.weeks })
+      .catch((err) => setExportError(err instanceof ApiError ? err.message : "Failed to export the PDF"))
+      .finally(() => setExporting(false));
+  }
+
   const weeks = useMemo(() => {
     if (!data) return [];
     const chunks: ScheduleGanttDay[][] = [];
@@ -146,12 +159,19 @@ export function ScheduleGanttPage() {
             Next week &#9654;
           </button>
         </div>
-        {data && (
-          <span className="muted">
-            {data.window.start} — {addDaysIso(data.window.start, data.window.weeks * 7 - 1)}
-          </span>
-        )}
+        <div className="gantt-toolbar-nav">
+          {data && (
+            <span className="muted">
+              {data.window.start} — {addDaysIso(data.window.start, data.window.weeks * 7 - 1)}
+            </span>
+          )}
+          <button type="button" onClick={exportPdf} disabled={!data || exporting}>
+            {exporting ? "Generating PDF…" : "Export PDF"}
+          </button>
+        </div>
       </div>
+
+      {exportError && <p className="error print-hide">{exportError}</p>}
 
       <div className="gantt-legend">
         <span className="gantt-legend-item">

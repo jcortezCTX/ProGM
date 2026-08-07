@@ -1,4 +1,4 @@
-import { apiFetch, buildQueryString } from "./client";
+import { apiDownload, apiFetch, buildQueryString, saveBlob } from "./client";
 import type {
   ScheduleActivity,
   ScheduleActivityDetail,
@@ -78,4 +78,14 @@ export function deleteHoliday(id: string): Promise<void> {
 
 export function getGantt(params: { start?: string; weeks?: number } = {}): Promise<ScheduleGanttResponse> {
   return apiFetch(`/schedule/gantt${buildQueryString(params)}`);
+}
+
+/**
+ * Downloads the lookahead window as a tabloid-landscape PDF. The sheet is
+ * rendered on the API (headless Chromium) rather than printed from the
+ * browser, so every export is identical regardless of who exports it.
+ */
+export async function downloadGanttPdf(params: { start?: string; weeks?: number } = {}): Promise<void> {
+  const { blob, filename } = await apiDownload(`/schedule/gantt/pdf${buildQueryString(params)}`);
+  saveBlob(blob, filename ?? "lookahead.pdf");
 }

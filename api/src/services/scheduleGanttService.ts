@@ -27,6 +27,21 @@ export interface GanttParams {
 }
 
 export async function getGantt(params: GanttParams) {
+  return (await buildGantt(params)).gantt;
+}
+
+/**
+ * The gantt payload plus each in-window activity's total resolved working-day
+ * count (the Excel's col I). The PDF sheet needs that column, and the gantt
+ * payload deliberately does not carry it — it is derived, so it is computed
+ * here from the same resolved day set rather than re-queried or stored.
+ */
+export async function getGanttWithDurations(params: GanttParams) {
+  const { gantt, daysByActivity } = await buildGantt(params);
+  return { ...gantt, days_by_activity: daysByActivity };
+}
+
+async function buildGantt(params: GanttParams) {
   const rawStart = params.start ? fromIsoDate(params.start) : new Date(new Date().toISOString().slice(0, 10));
   const windowStart = snapToSunday(rawStart);
   const totalDays = params.weeks * 7;
@@ -66,6 +81,7 @@ export async function getGantt(params: GanttParams) {
   }
 
   const crewTotals = new Map<string, number>(days.map((d) => [d.date, 0]));
+  const daysByActivity = new Map<string, number>();
 
   const activitiesBySection = new Map<string, ReturnType<typeof buildActivityCell>[]>();
   for (const activity of activities) {
@@ -81,6 +97,8 @@ export async function getGantt(params: GanttParams) {
 
     const inWindow = [...resolved].some((iso) => iso >= windowStartIso && iso <= windowEndIso);
     if (!inWindow) continue;
+
+    daysByActivity.set(activity.id, resolved.size);
 
     const overrideByDay = new Map(overrides.map((o) => [toIsoDate(o.day), o]));
     const cells = days.map((d) => {
@@ -104,7 +122,7 @@ export async function getGantt(params: GanttParams) {
     activitiesBySection.set(activity.section_id, list);
   }
 
-  return {
+  const gantt = {
     window: { start: windowStartIso, weeks: params.weeks, days },
     sections: sections.map((section) => ({
       id: section.id,
@@ -114,6 +132,8 @@ export async function getGantt(params: GanttParams) {
     })),
     crew_totals: days.map((d) => ({ date: d.date, total: crewTotals.get(d.date) ?? 0 })),
   };
+
+  return { gantt, daysByActivity };
 }
 
 function buildActivityCell(
