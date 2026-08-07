@@ -1858,7 +1858,7 @@ tr.overdue {
 
 .gantt-frozen-header {
   top: 0;
-  z-index: 4;
+  z-index: 6;
   background: var(--page-bg);
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1877,17 +1877,20 @@ tr.overdue {
   font-size: 0.68rem;
 }
 
-/* Only the header copies pin to the top — the same day classes are reused on
-   the crew-totals row, which must scroll with the body. */
+/* Only the header copies pin to the top of the scroll box. The same day
+   classes are reused on the crew-totals row, which pins lower down - see
+   .gantt-totals-row. */
 .gantt-week-header,
 thead .gantt-day-cell {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 5;
 }
 
+/* --gantt-week-h / --gantt-header-h are measured from the rendered header in
+   ScheduleGanttPage; the fallbacks only apply for the frame before that runs. */
 thead .gantt-day-cell {
-  top: 1.9rem;
+  top: var(--gantt-week-h, 1.9rem);
 }
 
 .gantt-day-header-dow {
@@ -1912,13 +1915,22 @@ thead .gantt-day-cell {
   background: var(--rgba-warning-1);
 }
 
+/* Pins directly beneath the two header rows so the running crew count stays
+   visible while scrolling the activity list. The background must be opaque -
+   --rgba-primary-1 is a 10% tint, and activity rows scroll underneath - so the
+   tint is layered over the card background instead of used on its own. */
 .gantt-totals-row td {
+  position: sticky;
+  top: var(--gantt-header-h, 3.8rem);
+  z-index: 3;
   font-weight: 700;
-  background: var(--rgba-primary-1);
+  background: linear-gradient(var(--rgba-primary-1), var(--rgba-primary-1)) var(--card-bg);
 }
 
+/* Frozen columns of the totals row pin on both axes, so they must outrank the
+   totals row's own day cells as well as the activity rows' frozen cells. */
 .gantt-totals-row .gantt-frozen-cell {
-  background: var(--rgba-primary-1);
+  z-index: 4;
 }
 
 .gantt-total-cell {
@@ -1979,7 +1991,8 @@ thead .gantt-day-cell {
 
   .gantt-frozen-header,
   .gantt-week-header,
-  .gantt-day-cell {
+  .gantt-day-cell,
+  .gantt-totals-row td {
     position: static;
   }
 

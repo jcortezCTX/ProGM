@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { downloadGanttPdf, getGantt, listActivities } from "../api/schedule";
@@ -78,6 +78,10 @@ export function ScheduleGanttPage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const weekRowRef = useRef<HTMLTableRowElement>(null);
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+
   const load = useCallback((start: string | undefined) => {
     setLoading(true);
     getGantt({ start })
@@ -102,6 +106,34 @@ export function ScheduleGanttPage() {
       .then((res) => setDaysByActivity(new Map(res.data.map((a) => [a.id, a.days]))))
       .catch(() => {});
   }, []);
+
+  // The sticky day-header and crew-totals rows sit below the rows above them,
+  // so their `top` offsets are the rendered heights of those rows - which move
+  // with the font size, the column widths, and whether any day in the window
+  // carries a holiday label. Measure them rather than hardcoding an offset that
+  // silently drifts into an overlap.
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    const weekRow = weekRowRef.current;
+    const thead = theadRef.current;
+    if (!scroll || !weekRow || !thead) return;
+
+    // Measured off the row and section boxes, not the cells: only the cells are
+    // sticky, so these boxes keep their true layout height at any scroll offset
+    // and can't feed the offset being computed back into itself. Fractional
+    // heights matter - rounding up leaves a sub-pixel sliver of the scrolling
+    // rows visible between the header and the totals row.
+    const sync = () => {
+      scroll.style.setProperty("--gantt-week-h", `${weekRow.getBoundingClientRect().height}px`);
+      scroll.style.setProperty("--gantt-header-h", `${thead.getBoundingClientRect().height}px`);
+    };
+
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(weekRow);
+    observer.observe(thead);
+    return () => observer.disconnect();
+  }, [data]);
 
   function refetch() {
     load(data ? data.window.start : requestedStart);
@@ -195,10 +227,10 @@ export function ScheduleGanttPage() {
         <p>Loading…</p>
       ) : (
         data && (
-          <div className="gantt-scroll">
+          <div className="gantt-scroll" ref={scrollRef}>
             <table className="gantt-table">
-              <thead>
-                <tr>
+              <thead ref={theadRef}>
+                <tr ref={weekRowRef}>
                   {FROZEN_COLS.map((col, i) => (
                     <th
                       key={col.key}
