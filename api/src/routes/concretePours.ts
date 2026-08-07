@@ -7,7 +7,7 @@ import {
   updatePourSchema,
   weeklyReportQuerySchema,
 } from "../validation/concretePours.js";
-import { renderWeeklyReportPdf } from "../lib/weeklyReportPdf.js";
+import { getWeeklyReportPdf } from "../services/concreteWeeklyReportPdfService.js";
 import {
   NotFoundError,
   addSample,
@@ -205,10 +205,14 @@ concreteDashboardRouter.get("/weekly-report/pdf", async (req, res) => {
       getWeeklyReport(parsed.data.weekEnding),
       getConcreteSettings(),
     ]);
+    const { pdf, filename } = await getWeeklyReportPdf(report, settings);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="concrete-weekly-report-${report.week_ending}.pdf"`);
-    const doc = renderWeeklyReportPdf(report, settings);
-    doc.pipe(res);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    // Buffered rather than streamed: Chromium only hands back the PDF once the
+    // whole document is laid out, so there is nothing to stream, and setting
+    // the length lets the browser show real download progress.
+    res.setHeader("Content-Length", String(pdf.byteLength));
+    res.end(pdf);
   } catch (err) {
     handleError(res, err);
   }

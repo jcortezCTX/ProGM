@@ -1,5 +1,6 @@
+import { buildFooterTemplate } from "../lib/pdfLayout.js";
 import { renderHtmlToPdf } from "../lib/pdfRenderer.js";
-import { buildLookaheadFooterTemplate, buildLookaheadHtml } from "../lib/scheduleLookaheadHtml.js";
+import { buildLookaheadHtml } from "../lib/scheduleLookaheadHtml.js";
 import { type GanttParams, getGanttWithDurations } from "./scheduleGanttService.js";
 
 export interface LookaheadPdfResult {
@@ -21,7 +22,7 @@ export async function getLookaheadPdf(params: GanttParams): Promise<LookaheadPdf
     landscape: true,
     // Deeper at the bottom to clear the generated-on/page-number footer.
     margin: { top: "0.35in", right: "0.35in", bottom: "0.55in", left: "0.35in" },
-    footerTemplate: buildLookaheadFooterTemplate(),
+    footerTemplate: buildFooterTemplate(),
   });
 
   return { pdf, filename: `${data.window.weeks}-week-lookahead-${data.window.start}.pdf` };

@@ -1,4 +1,4 @@
-import { apiFetch, buildQueryString } from "./client";
+import { apiDownload, apiFetch, buildQueryString, saveBlob } from "./client";
 import type {
   ConcreteCredit,
   ConcreteCreditInput,
@@ -73,6 +73,16 @@ export function getConcreteSummary(): Promise<ConcreteSummary> {
 
 export function getWeeklyReport(weekEnding?: string): Promise<WeeklyReport> {
   return apiFetch(`/concrete/weekly-report${buildQueryString(weekEnding ? { weekEnding } : {})}`);
+}
+
+/**
+ * Downloads the weekly report as a letter-portrait PDF, rendered on the API so
+ * it matches for everyone regardless of browser print settings.
+ */
+export async function downloadWeeklyReportPdf(weekEnding?: string): Promise<void> {
+  const qs = buildQueryString(weekEnding ? { weekEnding } : {});
+  const { blob, filename } = await apiDownload(`/concrete/weekly-report/pdf${qs}`);
+  saveBlob(blob, filename ?? "concrete-weekly-report.pdf");
 }
 
 // ---- Mix designs ----

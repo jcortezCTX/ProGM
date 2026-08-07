@@ -28,6 +28,7 @@
 
   /* Semantic alpha ramps (tints for badges, flag highlights, soft
      backgrounds) - same convention as the primary ramp above. */
+  --rgba-success-1: rgba(9, 189, 60, 0.14);
   --rgba-danger-1: rgba(252, 46, 83, 0.12);
   --rgba-danger-2: rgba(252, 46, 83, 0.35);
   --rgba-info-1: rgba(214, 83, 193, 0.14);

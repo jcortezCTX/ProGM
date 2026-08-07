@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { API_BASE_URL, ApiError } from "../api/client";
-import { getWeeklyReport } from "../api/concrete";
-import { getToken } from "../auth/token";
+import { ApiError } from "../api/client";
+import { downloadWeeklyReportPdf, getWeeklyReport } from "../api/concrete";
 import type { WeeklyReport } from "../api/types";
 import { ConcreteNav } from "../components/ConcreteNav";
 
@@ -35,21 +34,13 @@ export function ConcreteWeeklyReportPage() {
 
   async function downloadPdf() {
     setDownloading(true);
+    setError(null);
     try {
-      const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/concrete/weekly-report/pdf?weekEnding=${weekEnding}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to generate PDF");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `concrete-weekly-report-${weekEnding}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setError("Failed to download PDF");
+      await downloadWeeklyReportPdf(weekEnding);
+    } catch (err) {
+      // Surfaces the API's own message rather than a generic string - a
+      // render failure and an expired session read very differently.
+      setError(err instanceof ApiError ? err.message : "Failed to download PDF");
     } finally {
       setDownloading(false);
     }

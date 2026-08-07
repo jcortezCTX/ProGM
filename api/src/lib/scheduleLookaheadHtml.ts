@@ -1,4 +1,4 @@
-import { PDF_FONT_STACK, PDF_THEME_TOKENS } from "./pdfTheme.js";
+import { baseSheetCss, esc } from "./pdfLayout.js";
 
 // Builds the printable 6 Week Lookahead sheet as a self-contained HTML
 // document for `pdfRenderer`. Kept pure and free of Chromium so the markup can
@@ -49,21 +49,6 @@ export interface LookaheadSheetData {
   crew_totals: { date: string; total: number }[];
   /** Activity id → resolved working-day count (Excel col I). Derived, never stored. */
   days_by_activity: Map<string, number>;
-}
-
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-// Every value below reaches the page as markup, and activity descriptions,
-// crew labels, markers and section names are all free text typed by users.
-function esc(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return "";
-  return String(value).replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 }
 
 function formatShort(iso: string): string {
@@ -117,26 +102,13 @@ const FROZEN_COLS: { label: string; width: string }[] = [
 
 function styles(): string {
   return `
-${PDF_THEME_TOKENS}
+${baseSheetCss()}
 
 /* Size only — the margins come from the renderer's margin option. Setting
    them here too would win over it and let the table run underneath the
    footer template, which Chromium draws inside the bottom margin box. */
 @page {
   size: tabloid landscape;
-}
-
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  font-family: ${PDF_FONT_STACK};
-  color: var(--text);
-  background: var(--card-bg);
-  /* Bar fills and weekend shading carry the meaning of the grid; without
-     this Chromium prints an all-white table. */
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
 }
 
 .sheet-header {
@@ -151,13 +123,12 @@ body {
   font-size: 15pt;
   font-weight: 700;
   color: var(--title);
-  margin: 0;
 }
 
 .sheet-subtitle {
   font-size: 8.5pt;
   color: var(--text-muted);
-  margin: 2pt 0 0;
+  margin-top: 2pt;
 }
 
 .legend {
@@ -192,10 +163,6 @@ th, td {
   overflow: hidden;
   white-space: nowrap;
 }
-
-/* Repeats the week + day header bands on every printed page. */
-thead { display: table-header-group; }
-tr { break-inside: avoid; }
 
 thead th {
   background: var(--page-bg);
@@ -348,24 +315,6 @@ function activityRowHtml(activity: LookaheadActivity, data: LookaheadSheetData):
 export interface LookaheadSheetMeta {
   /** Rendered under the title, e.g. "Job 0673 — OWP AWWTF". Optional. */
   jobLabel?: string | null;
-  /** Timestamp shown in the footer. Injectable so tests are deterministic. */
-  generatedAt?: Date;
-}
-
-export function buildLookaheadFooterTemplate(meta: LookaheadSheetMeta = {}): string {
-  const generated = (meta.generatedAt ?? new Date()).toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  // Chromium renders header/footer templates in an isolated document that
-  // inherits none of the page styles, so everything here is inline.
-  return (
-    `<div style="width:100%;margin:0 0.35in;font-size:7pt;color:#89879f;` +
-    `display:flex;justify-content:space-between;">` +
-    `<span>Generated ${esc(generated)}</span>` +
-    `<span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>` +
-    `</div>`
-  );
 }
 
 export function buildLookaheadHtml(data: LookaheadSheetData, meta: LookaheadSheetMeta = {}): string {
