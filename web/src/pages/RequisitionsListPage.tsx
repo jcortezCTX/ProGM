@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { createRequisition, listRequisitions, type RequisitionSortField } from "../api/requisitions";
-import { listItems } from "../api/inventory";
+import { listMechanicalLogItems } from "../api/mechanicalLog";
 import { ApiError } from "../api/client";
 import { ColumnPicker } from "../components/ColumnPicker";
 import { DataTable } from "../components/DataTable";
@@ -9,7 +9,7 @@ import { FulfillmentBar } from "../components/FulfillmentBar";
 import { SearchBox } from "../components/SearchBox";
 import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
-import type { CreateRequisitionLineItemInput, InventoryItem, Requisition } from "../api/types";
+import type { MechanicalLogItemWithFulfillment, Requisition } from "../api/types";
 
 const COLUMNS: ColumnDef<Requisition>[] = [
   {
@@ -41,18 +41,7 @@ const COLUMNS: ColumnDef<Requisition>[] = [
   },
 ];
 
-interface LineItemRow {
-  inventory_item_id: string;
-  description: string;
-  quantity_ordered: string;
-}
-
-function emptyRow(): LineItemRow {
-  return { inventory_item_id: "", description: "", quantity_ordered: "" };
-}
-
 export function RequisitionsListPage() {
-  const [items, setItems] = useState<InventoryItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const { visibleColumns, visibleKeys, toggle, reset } = useTableColumns("requisitions", COLUMNS);
   const {
@@ -75,25 +64,12 @@ export function RequisitionsListPage() {
     defaultOrder: "desc",
   });
 
-  useEffect(() => {
-    // Picker, not a paginated table - a large fixed limit stands in for a
-    // dedicated unbounded endpoint (see the table-enhancements plan).
-    listItems({ limit: 500 })
-      .then((res) => setItems(res.data))
-      .catch(() => setItems([]));
-  }, []);
-
-  async function handleCreate(input: {
-    requisition_number: string;
-    supplier: string;
-    notes: string;
-    line_items: CreateRequisitionLineItemInput[];
-  }) {
+  async function handleCreate(input: { requisition_number: string; supplier: string; notes: string; logItemIds: string[] }) {
     await createRequisition({
       requisition_number: input.requisition_number,
       supplier: input.supplier || undefined,
       notes: input.notes || undefined,
-      line_items: input.line_items.length > 0 ? input.line_items : undefined,
+      mechanical_log_item_ids: input.logItemIds.length > 0 ? input.logItemIds : undefined,
     });
     setShowForm(false);
     await refetch();
@@ -108,7 +84,7 @@ export function RequisitionsListPage() {
         </button>
       </div>
 
-      {showForm && <AddRequisitionForm items={items} onSubmit={handleCreate} />}
+      {showForm && <AddRequisitionForm onSubmit={handleCreate} />}
 
       {error && (
         <p className="error">{error instanceof ApiError ? error.message : "Failed to load requisitions"}</p>
@@ -141,35 +117,43 @@ export function RequisitionsListPage() {
   );
 }
 
+/**
+ * A requisition's line items ARE the Mechanical Log rows it claims (spec
+ * §3.2) - so creating one means picking unreleased rows off the log, not
+ * typing in inventory items and quantities. Auto-creating a requisition just
+ * from typing a new release number is explicitly out of scope (§10) - this
+ * is the deliberate, explicit path.
+ */
 function AddRequisitionForm({
-  items,
   onSubmit,
 }: {
-  items: InventoryItem[];
-  onSubmit: (input: {
-    requisition_number: string;
-    supplier: string;
-    notes: string;
-    line_items: CreateRequisitionLineItemInput[];
-  }) => Promise<void>;
+  onSubmit: (input: { requisition_number: string; supplier: string; notes: string; logItemIds: string[] }) => Promise<void>;
 }) {
   const [requisitionNumber, setRequisitionNumber] = useState("");
   const [supplier, setSupplier] = useState("");
   const [notes, setNotes] = useState("");
-  const [rows, setRows] = useState<LineItemRow[]>([emptyRow()]);
+  const [search, setSearch] = useState("");
+  const [rows, setRows] = useState<MechanicalLogItemWithFulfillment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function updateRow(index: number, patch: Partial<LineItemRow>) {
-    setRows((r) => r.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  }
+  useEffect(() => {
+    setLoading(true);
+    listMechanicalLogItems({ q: search || undefined, unreleased: true, limit: 200 })
+      .then((res) => setRows(res.data))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [search]);
 
-  function addRow() {
-    setRows((r) => [...r, emptyRow()]);
-  }
-
-  function removeRow(index: number) {
-    setRows((r) => r.filter((_, i) => i !== index));
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -177,14 +161,7 @@ function AddRequisitionForm({
     setSubmitting(true);
     setError(null);
     try {
-      const lineItems: CreateRequisitionLineItemInput[] = rows
-        .filter((row) => row.inventory_item_id && row.quantity_ordered)
-        .map((row) => ({
-          inventory_item_id: row.inventory_item_id,
-          description: row.description || undefined,
-          quantity_ordered: row.quantity_ordered,
-        }));
-      await onSubmit({ requisition_number: requisitionNumber, supplier, notes, line_items: lineItems });
+      await onSubmit({ requisition_number: requisitionNumber, supplier, notes, logItemIds: [...selected] });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create requisition");
     } finally {
@@ -209,52 +186,50 @@ function AddRequisitionForm({
         <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
 
-      <div className="line-item-builder">
-        <span className="detail-field-heading">Expected line items</span>
-        {rows.map((row, index) => (
-          <div className="line-item-row" key={index}>
-            <label>
-              Item
-              <select
-                value={row.inventory_item_id}
-                onChange={(e) => updateRow(index, { inventory_item_id: e.target.value })}
-              >
-                <option value="">Select item…</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.sku} — {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Description
-              <input value={row.description} onChange={(e) => updateRow(index, { description: e.target.value })} />
-            </label>
-            <label>
-              Qty ordered
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={row.quantity_ordered}
-                onChange={(e) => updateRow(index, { quantity_ordered: e.target.value })}
-              />
-            </label>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() => removeRow(index)}
-              disabled={rows.length === 1}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        <button type="button" className="button-secondary" onClick={addRow}>
-          Add line
-        </button>
-      </div>
+      <span className="detail-field-heading">
+        Mechanical Log rows to release ({selected.size} selected) — only rows not already on a requisition are
+        shown
+      </span>
+      <input
+        placeholder="Search tag, description, supplier, material…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {loading ? (
+        <p>Loading…</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Tag</th>
+              <th>Description</th>
+              <th>Supplier</th>
+              <th>Qty released</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggle(row.id)} />
+                </td>
+                <td>{row.tag_number ?? "(no tag)"}</td>
+                <td>{row.description ?? "—"}</td>
+                <td>{row.supplier ?? "—"}</td>
+                <td>
+                  {row.qty_released ?? "0"} {row.unit}
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5}>No unreleased mechanical log rows match.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
 
       {error && <p className="error">{error}</p>}
       <button type="submit" disabled={submitting}>

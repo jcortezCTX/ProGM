@@ -6,7 +6,13 @@ import { DataTable } from "../components/DataTable";
 import { SearchBox } from "../components/SearchBox";
 import { useListQuery } from "../hooks/useListQuery";
 import { useTableColumns, type ColumnDef } from "../hooks/useTableColumns";
-import type { MechanicalLogItem } from "../api/types";
+import type { MechanicalLogItemWithFulfillment } from "../api/types";
+
+const FULFILLMENT_LABEL: Record<string, string> = {
+  not_received: "Not received",
+  partial: "Partial",
+  complete: "Complete",
+};
 
 function money(value: string | null): string {
   return value === null ? "—" : `$${value}`;
@@ -24,7 +30,7 @@ function text(value: string | null): string {
 // data columns - far too many to show at once, which is exactly the case
 // customizable columns exists for. A sensible working subset ships visible
 // by default; the rest are one click away via the Columns picker.
-const COLUMNS: ColumnDef<MechanicalLogItem>[] = [
+const COLUMNS: ColumnDef<MechanicalLogItemWithFulfillment>[] = [
   {
     key: "tag_number",
     label: "Tag Number",
@@ -35,6 +41,29 @@ const COLUMNS: ColumnDef<MechanicalLogItem>[] = [
   { key: "supplier", label: "Supplier", render: (row) => text(row.supplier) },
   { key: "qty_released", label: "Qty Released", render: (row) => text(row.qty_released) },
   { key: "unit", label: "Unit", render: (row) => text(row.unit) },
+  // Chain-derived (MATERIAL_FLOW_SPEC.md), off by default so the historical
+  // CSV-mirroring default view is unchanged.
+  {
+    key: "requisition_number",
+    label: "Requisition",
+    render: (row) =>
+      row.requisition_number ? (
+        <Link to={`/requisitions/${row.requisition_id}`}>{row.requisition_number}</Link>
+      ) : (
+        "—"
+      ),
+    defaultVisible: false,
+  },
+  {
+    key: "fulfillment_status",
+    label: "Fulfillment",
+    render: (row) => (
+      <span className={`badge-neutral badge-fulfillment-${row.fulfillment_status}`}>
+        {FULFILLMENT_LABEL[row.fulfillment_status]}
+      </span>
+    ),
+    defaultVisible: false,
+  },
   { key: "delivered_qty", label: "Delivered Qty", render: (row) => text(row.delivered_qty) },
   { key: "need_qty", label: "Need Qty", render: (row) => text(row.need_qty) },
   { key: "due_date", label: "Due Date", sortField: "due_date", render: (row) => date(row.due_date) },
@@ -109,7 +138,7 @@ export function MechanicalLogListPage() {
     setSort,
     q,
     setQ,
-  } = useListQuery<MechanicalLogItem, MechanicalLogSortField>({
+  } = useListQuery<MechanicalLogItemWithFulfillment, MechanicalLogSortField>({
     queryKeyBase: "mechanical-log",
     fetchPage: listMechanicalLogItems,
     defaultSort: "tag_number",

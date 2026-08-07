@@ -173,36 +173,26 @@ model asset_history {
   users         users?            @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-// A vendor order. Not everything on a requisition arrives at once - it's
-// fulfilled across multiple partial deliveries over time (see
-// requisition_fulfillment, and img/deliveryLog.png for the source workflow).
+// A vendor order, cut from the Mechanical Log. Its line items ARE its
+// mechanical_log_items rows - Release number IS the requisition number, so a
+// separate requisition_line_items table would be a second, divergent copy of
+// the ordered quantity (MATERIAL_FLOW_SPEC.md §3.2). The one place an ordered
+// quantity lives is mechanical_log_items.qty_released.
+//
+// Not everything on a requisition arrives at once - it's fulfilled across
+// multiple partial deliveries over time (see mechanical_log_fulfillment, and
+// img/deliveryLog.png for the source workflow).
 model requisitions {
-  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requisition_number     String                   @unique
-  supplier               String?
-  notes                  String?
-  created_by             String?                  @db.Uuid
-  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime                 @default(now()) @updatedAt @db.Timestamptz(6)
-  users                  users?                   @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requisition_line_items requisition_line_items[]
-  deliveries             deliveries[]
-}
-
-// What was ordered - quantity_ordered is the expected amount; actual receipt
-// is tracked separately via delivery_line_items / requisition_fulfillment.
-model requisition_line_items {
-  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requisition_id      String                @db.Uuid
-  inventory_item_id   String                @db.Uuid
-  description         String?
-  quantity_ordered    Decimal               @db.Decimal
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  requisitions        requisitions          @relation(fields: [requisition_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  inventory_items     inventory_items       @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  delivery_line_items delivery_line_items[]
-
-  @@index([requisition_id], map: "idx_requisition_line_items_requisition")
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requisition_number   String                 @unique
+  supplier             String?
+  notes                String?
+  created_by           String?                @db.Uuid
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  users                users?                 @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mechanical_log_items mechanical_log_items[]
+  deliveries           deliveries[]
 }
 
 // A receiving report: one truck/shipment arriving on site, inspected and
@@ -230,26 +220,31 @@ model deliveries {
   delivery_line_items        delivery_line_items[]
 }
 
+// What actually showed up. mechanical_log_item_id is nullable on purpose: the
+// ~10% of receipts that were never on the Mechanical Log are received straight
+// against Inventory (MATERIAL_FLOW_SPEC.md §3.1). inventory_item_id stays NOT
+// NULL - the receiving service creates the item if it doesn't exist yet (§5.2),
+// which keeps inventory_transactions.item_id always valid.
 model delivery_line_items {
-  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  delivery_id              String                    @db.Uuid
-  requisition_line_item_id String?                   @db.Uuid
-  inventory_item_id        String                    @db.Uuid
-  shipment_number          String?
-  description              String?
-  quantity_received        Decimal                   @db.Decimal
-  condition                String?
-  properly_marked          Boolean?
-  disposition              delivery_line_disposition @default(accept)
-  note                     String?
-  created_at               DateTime                  @default(now()) @db.Timestamptz(6)
-  deliveries               deliveries                @relation(fields: [delivery_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  requisition_line_items   requisition_line_items?   @relation(fields: [requisition_line_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inventory_items          inventory_items           @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  inventory_transactions   inventory_transactions[]
+  id                     String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  delivery_id            String                    @db.Uuid
+  mechanical_log_item_id String?                   @db.Uuid
+  inventory_item_id      String                    @db.Uuid
+  shipment_number        String?
+  description            String?
+  quantity_received      Decimal                   @db.Decimal
+  condition              String?
+  properly_marked        Boolean?
+  disposition            delivery_line_disposition @default(accept)
+  note                   String?
+  created_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  deliveries             deliveries                @relation(fields: [delivery_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  mechanical_log_items   mechanical_log_items?     @relation(fields: [mechanical_log_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  inventory_items        inventory_items           @relation(fields: [inventory_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory_transactions inventory_transactions[]
 
   @@index([delivery_id], map: "idx_delivery_line_items_delivery")
-  @@index([requisition_line_item_id], map: "idx_delivery_line_items_requisition_line_item")
+  @@index([mechanical_log_item_id], map: "idx_delivery_line_items_mechanical_log_item")
 }
 
 model drawing_revisions {
@@ -302,7 +297,7 @@ model inventory_items {
   delivery_line_items    delivery_line_items[]
   inventory_transactions inventory_transactions[]
   inventory_item_tags    inventory_item_tags[]
-  requisition_line_items requisition_line_items[]
+  mechanical_log_items   mechanical_log_items[]
 }
 
 // Admin-configured template shared by all inventory items - mirrors the
@@ -358,8 +353,18 @@ model inventory_transactions {
 // tracking, delivery-vs-need quantities, and contract/invoice pricing go well
 // beyond what inventory_items or delivery_line_items model, so this is its
 // own typed table rather than shoehorned into either (see BUILD_PLAN.md).
-// Deliberately NOT wired into inventory_transactions - unlike the Delivery
-// Log, mechanical release tracking here is independent of warehouse stock.
+//
+// This IS the head of the material chain (MATERIAL_FLOW_SPEC.md): it is the
+// master list of what the job needs, requisitions are cut from it, deliveries
+// receive against it, and ~90% of Inventory originates here. (An earlier
+// comment claimed this table was deliberately unwired from stock - that was
+// backwards and the spec supersedes it.)
+//
+// delivered_qty / need_qty / received_on / received_by are FROZEN IMPORT
+// HISTORY from the source spreadsheet. Once the Delivery Log is live they are
+// read-only; the live received/outstanding numbers come from the
+// mechanical_log_fulfillment view (§4.3, invariant §8.8). Never write them
+// from the receiving flow.
 model mechanical_log_items {
   id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   release                 String?
@@ -398,9 +403,24 @@ model mechanical_log_items {
   created_by              String?   @db.Uuid
   created_at              DateTime  @default(now()) @db.Timestamptz(6)
   updated_at              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
-  users                   users?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Release number IS the requisition number (§2). Nullable forever - blank,
+  // `EMAIL` and `Hold - Not in GMP2` releases are notes, not requisitions, and
+  // their raw text is preserved verbatim in `release` (§3.3, invariant §8.4).
+  requisition_id    String? @db.Uuid
+  // Null until this row is first received, then claimed once by the receiving
+  // service (§5.2f). Many-to-one: the same tag recurs across releases, so
+  // several log rows legitimately share one inventory item (§3.1, §8.5).
+  inventory_item_id String? @db.Uuid
+
+  users               users?                @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requisitions        requisitions?         @relation(fields: [requisition_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  inventory_items     inventory_items?      @relation(fields: [inventory_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  delivery_line_items delivery_line_items[]
 
   @@index([tag_number], map: "idx_mechanical_log_items_tag_number")
+  @@index([requisition_id], map: "idx_mechanical_log_items_requisition")
+  @@index([inventory_item_id], map: "idx_mechanical_log_items_inventory_item")
 }
 
 // Single-row job config (job number/name, start date, total estimated CY).
@@ -761,10 +781,13 @@ view inventory_current_stock {
 }
 
 // Derived, never stored - same rule as inventory_current_stock. Only accepted
-// and conditionally-accepted line items count as received.
-view requisition_fulfillment {
-  requisition_line_item_id String?  @db.Uuid
-  quantity_received        Decimal? @db.Decimal
+// and conditionally-accepted line items count as received; `reject`
+// contributes nothing (MATERIAL_FLOW_SPEC.md §4.3, invariants §8.2/§8.7).
+// quantity_outstanding and fulfillment_status are computed from this in the
+// service layer and are likewise never columns.
+view mechanical_log_fulfillment {
+  mechanical_log_item_id String?  @db.Uuid
+  quantity_received      Decimal? @db.Decimal
 }
 
 enum asset_status {

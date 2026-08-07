@@ -60,13 +60,32 @@ export function RequisitionDetailPage() {
         )}
       </div>
 
-      <h2>Line items</h2>
+      <div className="stat-tiles">
+        <div className="stat-tile">
+          <span className="stat-value">{requisition.quantity_ordered}</span>
+          <span className="stat-label">Ordered</span>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-value">{requisition.quantity_received}</span>
+          <span className="stat-label">Received</span>
+        </div>
+        <div className="stat-tile alert">
+          <span className="stat-value">{requisition.quantity_outstanding}</span>
+          <span className="stat-label">Outstanding</span>
+        </div>
+      </div>
+
+      {/* A requisition's line items ARE its Mechanical Log rows - Release IS
+          the requisition number (spec §3.2), so there is no separate
+          quantity_ordered here beyond what each log row carries. */}
+      <h2>Line items (Mechanical Log)</h2>
       <table>
         <thead>
           <tr>
-            <th>Item</th>
+            <th>Tag</th>
             <th>Description</th>
-            <th>Qty ordered</th>
+            <th>Inventory item</th>
+            <th>Qty released</th>
             <th>Fulfillment</th>
           </tr>
         </thead>
@@ -74,20 +93,58 @@ export function RequisitionDetailPage() {
           {requisition.line_items.map((line) => (
             <tr key={line.id}>
               <td>
-                <Link to={`/inventory/${line.inventory_item_id}`}>
-                  {line.item_sku} — {line.item_name}
-                </Link>
+                <Link to={`/mechanical-log/${line.id}`}>{line.tag_number ?? "(no tag)"}</Link>
               </td>
               <td>{line.description ?? "—"}</td>
-              <td>{line.quantity_ordered}</td>
               <td>
-                <FulfillmentBar ordered={line.quantity_ordered} received={line.quantity_received} />
+                {line.item_sku && line.inventory_item_id ? (
+                  <Link to={`/inventory/${line.inventory_item_id}`}>{line.item_sku}</Link>
+                ) : (
+                  <span className="muted">not yet received</span>
+                )}
+              </td>
+              <td>
+                {line.qty_released ?? "0"} {line.unit}
+              </td>
+              <td>
+                <FulfillmentBar ordered={line.qty_released ?? "0"} received={line.quantity_received} />
               </td>
             </tr>
           ))}
           {requisition.line_items.length === 0 && (
             <tr>
-              <td colSpan={4}>No line items on this requisition.</td>
+              <td colSpan={5}>No Mechanical Log rows are claimed by this requisition yet.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      <h2>Deliveries</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Report #</th>
+            <th>Date received</th>
+            <th>Status</th>
+            <th>Supplier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requisition.deliveries.map((d) => (
+            <tr key={d.id}>
+              <td>
+                <Link to={`/deliveries/${d.id}`}>#{d.report_number}</Link>
+              </td>
+              <td>{new Date(d.received_date).toLocaleDateString()}</td>
+              <td>
+                <span className={`badge-neutral badge-status-${d.status}`}>{d.status}</span>
+              </td>
+              <td>{d.supplier ?? "—"}</td>
+            </tr>
+          ))}
+          {requisition.deliveries.length === 0 && (
+            <tr>
+              <td colSpan={4}>No deliveries against this requisition yet.</td>
             </tr>
           )}
         </tbody>

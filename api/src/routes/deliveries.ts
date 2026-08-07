@@ -4,15 +4,21 @@ import {
   createDeliverySchema,
   deliveriesListQuerySchema,
   idParamSchema,
+  lineItemIdParamSchema,
+  updateDeliveryLineItemSchema,
   updateDeliverySchema,
 } from "../validation/deliveries.js";
 import {
+  ConflictError,
   NotFoundError,
+  ValidationError,
   addDeliveryLineItem,
   createDelivery,
+  deleteDeliveryLineItem,
   getDelivery,
   listDeliveries,
   updateDelivery,
+  updateDeliveryLineItem,
 } from "../services/deliveryService.js";
 
 export const deliveriesRouter = Router();
@@ -20,6 +26,15 @@ export const deliveriesRouter = Router();
 function handleError(res: import("express").Response, err: unknown) {
   if (err instanceof NotFoundError) {
     res.status(404).json({ error: err.message });
+    return;
+  }
+  // Receiving a log row onto a delivery for a different requisition (§5.2).
+  if (err instanceof ConflictError) {
+    res.status(409).json({ error: err.message });
+    return;
+  }
+  if (err instanceof ValidationError) {
+    res.status(400).json({ error: err.message });
     return;
   }
   console.error(err);
@@ -98,8 +113,40 @@ deliveriesRouter.post("/:id/line-items", async (req, res) => {
     return;
   }
   try {
-    const lineItem = await addDeliveryLineItem(parsedId.data.id, parsedBody.data);
-    res.status(201).json(lineItem);
+    const result = await addDeliveryLineItem(parsedId.data.id, parsedBody.data);
+    res.status(201).json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+deliveriesRouter.patch("/:id/line-items/:lineItemId", async (req, res) => {
+  const parsedId = lineItemIdParamSchema.safeParse(req.params);
+  if (!parsedId.success) {
+    res.status(400).json({ error: parsedId.error.message });
+    return;
+  }
+  const parsedBody = updateDeliveryLineItemSchema.safeParse(req.body);
+  if (!parsedBody.success) {
+    res.status(400).json({ error: parsedBody.error.message });
+    return;
+  }
+  try {
+    res.json(await updateDeliveryLineItem(parsedId.data.lineItemId, parsedBody.data));
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+deliveriesRouter.delete("/:id/line-items/:lineItemId", async (req, res) => {
+  const parsedId = lineItemIdParamSchema.safeParse(req.params);
+  if (!parsedId.success) {
+    res.status(400).json({ error: parsedId.error.message });
+    return;
+  }
+  try {
+    await deleteDeliveryLineItem(parsedId.data.lineItemId);
+    res.status(204).end();
   } catch (err) {
     handleError(res, err);
   }

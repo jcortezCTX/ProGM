@@ -1,11 +1,10 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 import { combineWhere, decodeCursor, keysetWhere, paginate } from "../lib/listQuery.js";
+import { deriveFulfillment, fulfillmentByLogItemIds } from "./mechanicalLogFulfillment.js";
 
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
-
-type DecimalInput = string | number | Prisma.Decimal;
 
 type RequisitionSortField = "requisition_number" | "supplier" | "created_at";
 
@@ -31,18 +30,14 @@ function cursorValue(row: Record<string, unknown>, sortField: RequisitionSortFie
   return null;
 }
 
-export interface CreateRequisitionLineItemInput {
-  inventory_item_id: string;
-  description?: string | null;
-  quantity_ordered: DecimalInput;
-}
-
 export interface CreateRequisitionInput {
   requisition_number: string;
   supplier?: string | null;
   notes?: string | null;
   created_by?: string | null;
-  line_items?: CreateRequisitionLineItemInput[];
+  // A requisition's line items ARE its Mechanical Log rows (spec §3.2) - there
+  // is no separate ordered-quantity to supply; it's qty_released on the row.
+  mechanical_log_item_ids?: string[];
 }
 
 function mapWriteError(err: unknown, requisitionNumber: string): never {
@@ -52,41 +47,59 @@ function mapWriteError(err: unknown, requisitionNumber: string): never {
   throw err;
 }
 
-// requisition_fulfillment is derived (never stored) - only accepted /
-// conditional_use delivery line items count, same rule as inventory stock.
-async function fulfillmentByLineItemIds(ids: string[]): Promise<Map<string, Prisma.Decimal>> {
-  if (ids.length === 0) return new Map();
-  const rows = await prisma.requisition_fulfillment.findMany({
-    where: { requisition_line_item_id: { in: ids } },
-  });
-  const map = new Map<string, Prisma.Decimal>();
-  for (const row of rows) {
-    if (row.requisition_line_item_id) {
-      map.set(row.requisition_line_item_id, row.quantity_received ?? new Prisma.Decimal(0));
-    }
-  }
-  return map;
-}
-
+/**
+ * Creates the requisition and claims its log rows in ONE DB transaction (§5.1).
+ *
+ * A log row belongs to exactly one requisition, so claiming a row that already
+ * belongs to a different one is a 409 rather than a silent overwrite -
+ * reassignment has to be deliberate.
+ */
 export async function createRequisition(input: CreateRequisitionInput) {
+  const ids = input.mechanical_log_item_ids ?? [];
+
   try {
-    return await prisma.requisitions.create({
-      data: {
-        requisition_number: input.requisition_number,
-        supplier: input.supplier ?? null,
-        notes: input.notes ?? null,
-        created_by: input.created_by ?? null,
-        requisition_line_items: input.line_items
-          ? {
-              create: input.line_items.map((li) => ({
-                inventory_item_id: li.inventory_item_id,
-                description: li.description ?? null,
-                quantity_ordered: li.quantity_ordered,
-              })),
-            }
-          : undefined,
-      },
-      include: { requisition_line_items: true },
+    return await prisma.$transaction(async (tx) => {
+      if (ids.length > 0) {
+        const rows = await tx.mechanical_log_items.findMany({ where: { id: { in: ids } } });
+
+        const missing = ids.filter((id) => !rows.some((r) => r.id === id));
+        if (missing.length > 0) {
+          throw new NotFoundError(`Mechanical log item(s) not found: ${missing.join(", ")}`);
+        }
+
+        const claimed = rows.filter((r) => r.requisition_id !== null);
+        if (claimed.length > 0) {
+          const existing = await tx.requisitions.findMany({
+            where: { id: { in: claimed.map((r) => r.requisition_id as string) } },
+          });
+          const numberById = new Map(existing.map((r) => [r.id, r.requisition_number]));
+          const detail = claimed
+            .map((r) => `${r.tag_number ?? r.id} -> ${numberById.get(r.requisition_id as string) ?? "unknown"}`)
+            .join(", ");
+          throw new ConflictError(`Mechanical log item(s) already on another requisition: ${detail}`);
+        }
+      }
+
+      const requisition = await tx.requisitions.create({
+        data: {
+          requisition_number: input.requisition_number,
+          supplier: input.supplier ?? null,
+          notes: input.notes ?? null,
+          created_by: input.created_by ?? null,
+        },
+      });
+
+      if (ids.length > 0) {
+        await tx.mechanical_log_items.updateMany({
+          where: { id: { in: ids } },
+          data: { requisition_id: requisition.id },
+        });
+      }
+
+      return tx.requisitions.findUniqueOrThrow({
+        where: { id: requisition.id },
+        include: { mechanical_log_items: true },
+      });
     });
   } catch (err) {
     mapWriteError(err, input.requisition_number);
@@ -108,7 +121,7 @@ export async function listRequisitions(params: ListRequisitionsParams) {
     where,
     orderBy: [{ [sortField]: params.order }, { id: params.order }],
     take: params.limit + 1,
-    include: { requisition_line_items: true },
+    include: { mechanical_log_items: true },
   });
 
   const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => ({
@@ -121,22 +134,25 @@ export async function listRequisitions(params: ListRequisitionsParams) {
   // same rule as inventory stock, and not sortable/filterable in v1 (see the
   // table-enhancements plan): correctly seeking on a JS-side reduction would
   // need the same raw-SQL treatment as Inventory's derived stock sort.
-  const allLineItemIds = page.flatMap((r) => r.requisition_line_items.map((li) => li.id));
-  const fulfillment = await fulfillmentByLineItemIds(allLineItemIds);
+  //
+  // Ordered now comes from qty_released on the log rows - the single place an
+  // ordered quantity lives since requisition_line_items was dropped (§3.2).
+  const allLogItemIds = page.flatMap((r) => r.mechanical_log_items.map((li) => li.id));
+  const fulfillment = await fulfillmentByLogItemIds(allLogItemIds);
 
   const data = page.map((r) => {
-    const quantityOrdered = r.requisition_line_items.reduce(
-      (sum, li) => sum.plus(li.quantity_ordered),
+    const quantityOrdered = r.mechanical_log_items.reduce(
+      (sum, li) => sum.plus(li.qty_released ?? 0),
       new Prisma.Decimal(0),
     );
-    const quantityReceived = r.requisition_line_items.reduce(
+    const quantityReceived = r.mechanical_log_items.reduce(
       (sum, li) => sum.plus(fulfillment.get(li.id) ?? 0),
       new Prisma.Decimal(0),
     );
-    const { requisition_line_items, ...rest } = r;
+    const { mechanical_log_items, ...rest } = r;
     return {
       ...rest,
-      line_item_count: requisition_line_items.length,
+      line_item_count: mechanical_log_items.length,
       quantity_ordered: quantityOrdered,
       quantity_received: quantityReceived,
     };
@@ -148,20 +164,39 @@ export async function listRequisitions(params: ListRequisitionsParams) {
 export async function getRequisition(id: string) {
   const requisition = await prisma.requisitions.findUnique({
     where: { id },
-    include: { requisition_line_items: { include: { inventory_items: true } } },
+    include: {
+      mechanical_log_items: {
+        include: { inventory_items: true },
+        orderBy: [{ tag_number: "asc" }, { id: "asc" }],
+      },
+      deliveries: { orderBy: { received_date: "desc" } },
+    },
   });
   if (!requisition) throw new NotFoundError(`Requisition ${id} not found`);
 
-  const fulfillment = await fulfillmentByLineItemIds(requisition.requisition_line_items.map((li) => li.id));
+  const fulfillment = await fulfillmentByLogItemIds(requisition.mechanical_log_items.map((li) => li.id));
 
-  const { requisition_line_items, ...rest } = requisition;
+  const { mechanical_log_items, deliveries, ...rest } = requisition;
+
+  const lineItems = mechanical_log_items.map(({ inventory_items, ...li }) => ({
+    ...li,
+    item_sku: inventory_items?.sku ?? null,
+    item_name: inventory_items?.name ?? null,
+    ...deriveFulfillment(li.qty_released, fulfillment.get(li.id)),
+  }));
+
+  // Requisition-level roll-up, same derived rule as the per-row numbers.
+  const quantityOrdered = lineItems.reduce((sum, li) => sum.plus(li.qty_released ?? 0), new Prisma.Decimal(0));
+  const quantityReceived = lineItems.reduce((sum, li) => sum.plus(li.quantity_received), new Prisma.Decimal(0));
+  const rollUp = deriveFulfillment(quantityOrdered, quantityReceived);
+
   return {
     ...rest,
-    line_items: requisition_line_items.map(({ inventory_items, ...li }) => ({
-      ...li,
-      item_sku: inventory_items.sku,
-      item_name: inventory_items.name,
-      quantity_received: fulfillment.get(li.id) ?? new Prisma.Decimal(0),
-    })),
+    line_items: lineItems,
+    deliveries,
+    quantity_ordered: quantityOrdered,
+    quantity_received: rollUp.quantity_received,
+    quantity_outstanding: rollUp.quantity_outstanding,
+    fulfillment_status: rollUp.fulfillment_status,
   };
 }

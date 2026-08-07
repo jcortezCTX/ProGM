@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { createMechanicalLogItem, getMechanicalLogItem, updateMechanicalLogItem } from "../api/mechanicalLog";
-import type { MechanicalLogItem, MechanicalLogItemInput } from "../api/types";
+import { FulfillmentBar } from "../components/FulfillmentBar";
+import type { MechanicalLogItemDetail, MechanicalLogItemInput } from "../api/types";
 
 // Every field is a plain string in local form state (even dates/decimals) so
 // the user can type freely and only round-trips to the API on Save - same
@@ -90,7 +91,7 @@ function emptyForm(): EditableForm {
   };
 }
 
-function buildForm(item: MechanicalLogItem): EditableForm {
+function buildForm(item: MechanicalLogItemDetail): EditableForm {
   return {
     release: str(item.release),
     supplier: str(item.supplier),
@@ -146,7 +147,7 @@ export function MechanicalLogDetailPage() {
   const isNew = id === "new";
   const navigate = useNavigate();
 
-  const [item, setItem] = useState<MechanicalLogItem | null>(null);
+  const [item, setItem] = useState<MechanicalLogItemDetail | null>(null);
   const [form, setForm] = useState<EditableForm>(emptyForm());
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
@@ -480,6 +481,77 @@ export function MechanicalLogDetailPage() {
           </div>
         </div>
       </form>
+
+      {/* Procurement panel (spec §7.2) - requisition, linked inventory item,
+          and every delivery line that has hit this row. Purely derived
+          display, nothing here is editable. */}
+      {item && (
+        <section className="detail-section">
+          <h2>Procurement</h2>
+          <div className="card card-wide">
+            <div className="inline-fields">
+              <div>
+                <span className="detail-field-heading">Requisition</span>
+                <p>
+                  {item.requisition_id ? (
+                    <Link to={`/requisitions/${item.requisition_id}`}>{item.requisition_number}</Link>
+                  ) : (
+                    "— (release: " + (item.release ?? "unreleased") + ")"
+                  )}
+                </p>
+              </div>
+              <div>
+                <span className="detail-field-heading">Inventory item</span>
+                <p>
+                  {item.inventory_item_id ? (
+                    <Link to={`/inventory/${item.inventory_item_id}`}>{item.item_sku}</Link>
+                  ) : (
+                    "Not yet received"
+                  )}
+                </p>
+              </div>
+              <div>
+                <span className="detail-field-heading">Fulfillment</span>
+                <FulfillmentBar ordered={item.qty_released ?? "0"} received={item.quantity_received} />
+              </div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Report #</th>
+                <th>Date received</th>
+                <th>Qty received</th>
+                <th>Disposition</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.delivery_lines.map((line) => (
+                <tr key={line.id}>
+                  <td>
+                    <Link to={`/deliveries/${line.delivery_id}`}>#{line.report_number}</Link>
+                  </td>
+                  <td>{new Date(line.received_date).toLocaleDateString()}</td>
+                  <td>{line.quantity_received}</td>
+                  <td>
+                    <span className={`badge-neutral badge-disposition-${line.disposition}`}>
+                      {line.disposition.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td>{line.note ?? "—"}</td>
+                </tr>
+              ))}
+              {item.delivery_lines.length === 0 && (
+                <tr>
+                  <td colSpan={5}>No deliveries have received against this row yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
     </div>
   );
 }

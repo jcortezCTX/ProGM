@@ -1,10 +1,12 @@
 import { apiFetch, buildQueryString } from "./client";
 import type {
   AddDeliveryLineItemInput,
+  AddDeliveryLineItemResult,
   CreateDeliveryInput,
   Delivery,
   DeliveryDetail,
   DeliveryLineItem,
+  DeliveryLineDisposition,
   DeliveryStatus,
   ListResponse,
   UpdateDeliveryInput,
@@ -46,9 +48,33 @@ export function updateDelivery(id: string, input: UpdateDeliveryInput): Promise<
 export function addDeliveryLineItem(
   deliveryId: string,
   input: AddDeliveryLineItemInput,
-): Promise<DeliveryLineItem> {
+): Promise<AddDeliveryLineItemResult> {
   return apiFetch(`/deliveries/${deliveryId}/line-items`, {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export interface UpdateDeliveryLineItemInput {
+  quantity_received?: string;
+  disposition?: DeliveryLineDisposition;
+  condition?: string | null;
+  properly_marked?: boolean | null;
+  note?: string | null;
+  location?: string;
+}
+
+export function updateDeliveryLineItem(
+  deliveryId: string,
+  lineItemId: string,
+  input: UpdateDeliveryLineItemInput,
+): Promise<DeliveryLineItem> {
+  return apiFetch(`/deliveries/${deliveryId}/line-items/${lineItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteDeliveryLineItem(deliveryId: string, lineItemId: string): Promise<void> {
+  return apiFetch(`/deliveries/${deliveryId}/line-items/${lineItemId}`, { method: "DELETE" });
 }

@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { combineWhere, decodeCursor, keysetWhere, paginate } from "../lib/listQuery.js";
+import { deriveFulfillment, fulfillmentByLogItemIds } from "./mechanicalLogFulfillment.js";
 
 export class NotFoundError extends Error {}
 
@@ -11,11 +12,17 @@ export interface ListMechanicalLogItemsParams {
   sort?: MechanicalLogSortField;
   order: "asc" | "desc";
   q?: string;
+  // Powers the "Add items from Mechanical Log" picker (§7.1): the delivery's
+  // own requisition is the default filter, with a toggle that widens to the
+  // whole log for the ~10% of receipts that were never on it.
+  requisition_id?: string;
+  unreleased?: boolean;
 }
 
 // Free-text search spans the fields someone would actually type a fragment
-// of when looking for an entry - not every column.
-const SEARCH_FIELDS = ["tag_number", "description", "supplier", "material"] as const;
+// of when looking for an entry - not every column. size/area/system are in
+// here because the receiving picker searches on them (§7.1).
+const SEARCH_FIELDS = ["tag_number", "description", "supplier", "material", "size", "area", "system"] as const;
 
 // tag_number/due_date are nullable columns; created_at is not - keysetWhere
 // needs to know which, since it must never emit `{ field: null }` against a
@@ -34,7 +41,11 @@ type DecimalInput = string | number;
 // Mirrors every column in logs_samples/Mechanical Log.csv - see the model
 // comment in schema.prisma for why this is a dedicated table rather than
 // routed through inventory_items or the generic custom-log engine.
+//
+// inventory_item_id is deliberately absent: it is claimed once by the
+// receiving service at first receipt and is not user-editable in v1 (§4.1).
 export interface MechanicalLogItemInput {
+  requisition_id?: string | null;
   release?: string | null;
   supplier?: string | null;
   review?: string | null;
@@ -100,12 +111,15 @@ export async function listMechanicalLogItems(params: ListMechanicalLogItemsParam
     params.q
       ? { OR: SEARCH_FIELDS.map((field) => ({ [field]: { contains: params.q, mode: "insensitive" } })) }
       : {},
+    params.requisition_id ? { requisition_id: params.requisition_id } : {},
+    params.unreleased ? { requisition_id: null } : {},
   );
 
   const rows = await prisma.mechanical_log_items.findMany({
     where,
     orderBy: [{ [sortField]: params.order }, { id: params.order }],
     take: params.limit + 1,
+    include: { requisitions: true, inventory_items: true },
   });
 
   const { page, hasMore, nextCursor } = paginate(rows, params.limit, (row) => ({
@@ -113,13 +127,58 @@ export async function listMechanicalLogItems(params: ListMechanicalLogItemsParam
     id: row.id,
   }));
 
-  return { data: page, hasMore, nextCursor };
+  // Received/outstanding/status come from the view, resolved for the whole page
+  // in one query rather than per row (§4.3).
+  const fulfillment = await fulfillmentByLogItemIds(page.map((r) => r.id));
+
+  const data = page.map(({ requisitions, inventory_items, ...row }) => ({
+    ...row,
+    requisition_number: requisitions?.requisition_number ?? null,
+    item_sku: inventory_items?.sku ?? null,
+    ...deriveFulfillment(row.qty_released, fulfillment.get(row.id)),
+  }));
+
+  return { data, hasMore, nextCursor };
 }
 
+/**
+ * Detail view, including the Procurement panel data (§7.2): the requisition
+ * this row was released on, the inventory item it resolved to, and every
+ * delivery line that has hit it.
+ */
 export async function getMechanicalLogItem(id: string) {
-  const item = await prisma.mechanical_log_items.findUnique({ where: { id } });
+  const item = await prisma.mechanical_log_items.findUnique({
+    where: { id },
+    include: {
+      requisitions: true,
+      inventory_items: true,
+      delivery_line_items: {
+        include: { deliveries: true },
+        orderBy: { created_at: "asc" },
+      },
+    },
+  });
   if (!item) throw new NotFoundError(`Mechanical log item ${id} not found`);
-  return item;
+
+  const fulfillment = await fulfillmentByLogItemIds([id]);
+  const { requisitions, inventory_items, delivery_line_items, ...rest } = item;
+
+  return {
+    ...rest,
+    requisition_number: requisitions?.requisition_number ?? null,
+    item_sku: inventory_items?.sku ?? null,
+    item_name: inventory_items?.name ?? null,
+    ...deriveFulfillment(rest.qty_released, fulfillment.get(id)),
+    delivery_lines: delivery_line_items.map(({ deliveries, ...li }) => ({
+      id: li.id,
+      delivery_id: li.delivery_id,
+      report_number: deliveries.report_number,
+      received_date: deliveries.received_date,
+      quantity_received: li.quantity_received,
+      disposition: li.disposition,
+      note: li.note,
+    })),
+  };
 }
 
 export async function createMechanicalLogItem(input: MechanicalLogItemInput) {
