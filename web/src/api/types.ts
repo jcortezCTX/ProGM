@@ -942,3 +942,152 @@ export interface BulkCreateAssetsResult {
   created: number;
   errors: { index: number; error: string; fields?: { path: string; message: string }[] }[];
 }
+
+// ---- Schedule (6 Week Lookahead) ----
+// No pagination here - the API is intentionally unpaginated (a bounded
+// ~180-row dataset), so these responses are plain arrays, not ListResponse.
+
+export interface ScheduleSection {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleSectionInput {
+  name: string;
+  sort_order?: number;
+}
+
+export type ScheduleEntryMode = "start_end" | "start_duration";
+
+export interface ScheduleActivity {
+  id: string;
+  section_id: string;
+  code: string | null;
+  description: string;
+  crew: string | null;
+  responsibility: string | null;
+  notes: string | null;
+  budget_mh: string | null;
+  burned_mh: string | null;
+  entry_mode: ScheduleEntryMode;
+  start_date: string | null;
+  end_date: string | null;
+  duration_days: number | null;
+  night_work: boolean;
+  critical_path: boolean;
+  shutdown: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Derived, read-only - never edit these client-side.
+  first_day: string | null;
+  last_day: string | null;
+  days: number;
+  delta: string | null;
+}
+
+export type ScheduleDayOverrideKind = "add" | "exclude";
+
+// No surrogate id - the DB primary key is the composite (activity_id, day),
+// per schedule_activity_days in schema.prisma. Use `day` as the React key.
+export interface ScheduleDayOverride {
+  activity_id: string;
+  day: string;
+  kind: ScheduleDayOverrideKind;
+  crew_count: number | null;
+  marker: string | null;
+}
+
+export interface ScheduleActivityDetail extends ScheduleActivity {
+  overrides: ScheduleDayOverride[];
+}
+
+export interface ScheduleActivityInput {
+  section_id?: string;
+  code?: string | null;
+  description?: string;
+  crew?: string | null;
+  responsibility?: string | null;
+  notes?: string | null;
+  budget_mh?: string | number | null;
+  burned_mh?: string | number | null;
+  entry_mode?: ScheduleEntryMode;
+  start_date?: string | null;
+  end_date?: string | null;
+  duration_days?: number | null;
+  night_work?: boolean;
+  critical_path?: boolean;
+  shutdown?: boolean;
+  sort_order?: number;
+}
+
+export interface ScheduleActivityFilters {
+  section_id?: string;
+  responsibility?: string;
+  crew?: string;
+  night_work?: boolean;
+  critical_path?: boolean;
+  shutdown?: boolean;
+  scheduled_between?: string;
+}
+
+export type ScheduleDayOverrideOp =
+  | { action: "upsert"; day: string; kind: ScheduleDayOverrideKind; crew_count?: number | null; marker?: string | null }
+  | { action: "remove"; day: string };
+
+export interface ScheduleHoliday {
+  id: string;
+  day: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleHolidayInput {
+  day: string;
+  name: string;
+}
+
+export interface ScheduleGanttDay {
+  date: string;
+  day_of_week: "Sun" | "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat";
+  is_weekend: boolean;
+  holiday_name: string | null;
+}
+
+export interface ScheduleGanttCell {
+  date: string;
+  scheduled: boolean;
+  crew_count: number | null;
+  marker: string | null;
+}
+
+export interface ScheduleGanttActivity {
+  id: string;
+  code: string | null;
+  crew: string | null;
+  description: string;
+  responsibility: string | null;
+  section_id: string;
+  night_work: boolean;
+  critical_path: boolean;
+  shutdown: boolean;
+  cells: ScheduleGanttCell[];
+}
+
+export interface ScheduleGanttSection {
+  id: string;
+  name: string;
+  sort_order: number;
+  activities: ScheduleGanttActivity[];
+}
+
+export interface ScheduleGanttResponse {
+  window: { start: string; weeks: number; days: ScheduleGanttDay[] };
+  sections: ScheduleGanttSection[];
+  crew_totals: { date: string; total: number }[];
+}

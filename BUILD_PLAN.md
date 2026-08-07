@@ -406,3 +406,43 @@ things deferred. Keep it short and factual.
   not the old GarneyOne reference screenshot. **Concrete Log was built before
   this landed** (see entry above) and still needs a restyle pass — it wasn't
   in the local tree this migration ran against.
+- 2026-08-07: **Schedule module (6 Week Lookahead) built and merged** per
+  `SCHEDULE_SPEC.md` (now committed to git; it was untracked before). Backend
+  and frontend were built as two stacked PRs (#13 backend → `main`, #15
+  frontend → #13), deliberately **not** in parallel — the spec's own build
+  order and this repo's "one vertical slice at a time" rule both require the
+  API to exist and be verified before the UI consumes it.
+
+  Things worth knowing if you touch this module:
+  - **Nothing derived is stored.** The resolved day set, working-day count
+    (the Excel's "Days" column), `delta` (budget − burned), and the CREW
+    TOTALS row are all computed server-side on read. `GET /api/schedule/gantt`
+    returns the whole window pre-computed (day flags, per-day cells, crew
+    totals) specifically so the date math lives in one tested place — the
+    frontend must never re-derive any of it.
+  - **The core math is `api/src/services/scheduleDaySet.ts`** — a pure module
+    with 29 unit tests. Auto-generation never lands on a Saturday, Sunday, or
+    a `schedule_holidays` date; weekend/night work exists *only* as an
+    explicit per-day `add` override. Change this file with tests first.
+  - **`schedule_activity_days` has a composite PK** (`activity_id`, `day`) —
+    no surrogate `id`. This bit the frontend once already (assumed an `id`
+    for React keys).
+  - **The import (`api/prisma/importLookahead.ts`) reads cell *fills*, not
+    values** — the workbook paints each activity's worked days as colored
+    cells, which is why it uses `exceljs` (SheetJS can't read fills
+    reliably). The color encoding was reverse-engineered from the real file:
+    theme-0/tint-0 and red are the bar (red also = critical path),
+    theme-0/tint≈−0.25 is weekend shading, and purple/pink are *column-wide*
+    calendar markers that import into `schedule_holidays` rather than being
+    per-activity flags. `night_work` has no reliable signal in the source and
+    imports as `false` everywhere — set it by hand where it matters.
+  - Imported state: 11 sections, 183 activities (142 scheduled, 41 unscheduled
+    year-placeholder rows), 12 holidays, ~2950 day-override rows. The script
+    is idempotent — it skips entirely if schedule data already exists.
+  - **Independent of Task Management and of the existing `schedule_events`
+    table** (that one is meetings/calendar). That separation is a requirement,
+    not an oversight — don't "helpfully" link them.
+  - The Gantt is a plain table, not a charting library, by explicit decision.
+    Flag tints use the semantic alpha-ramp tokens added to `web/src/tokens.css`
+    (`--rgba-danger-*`, `--rgba-info-*`, `--rgba-secondary-*`,
+    `--rgba-warning-1`, `--rgba-neutral-1`) — never hardcode a color here.

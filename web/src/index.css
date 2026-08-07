@@ -1718,3 +1718,247 @@ tr.overdue {
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
+
+/* Schedule module — Activities list flag badges + 6 Week Lookahead Gantt.
+   Color mapping (no hardcoded hex, tokens only): critical path -> --danger
+   (matches the Excel's red), shutdown -> --secondary (closest distinct accent
+   to the Excel's blue), night work -> --info (closest distinct accent to a
+   dark/contrast fill). Weekend/holiday shading uses neutral + --warning tints
+   so it reads as "non-working day" without competing with the flag colors. */
+
+.badge-flag-critical,
+.badge-flag-night,
+.badge-flag-shutdown {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-flag-critical {
+  background: var(--rgba-danger-1);
+  color: var(--danger);
+}
+
+.badge-flag-night {
+  background: var(--rgba-info-1);
+  color: var(--info);
+}
+
+.badge-flag-shutdown {
+  background: var(--rgba-secondary-1);
+  color: var(--secondary);
+}
+
+/* Schedule module — 6 Week Lookahead Gantt grid (plain table, no charting
+   library per SCHEDULE_SPEC.md). Frozen left columns + horizontally
+   scrolling day columns; header + frozen columns both position: sticky so
+   the grid stays readable while scrolling a ~150-row, 42-day sheet. */
+
+.gantt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.gantt-toolbar-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-shadow);
+}
+
+.gantt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.gantt-legend-swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 3px;
+}
+
+.gantt-scroll {
+  max-height: 75vh;
+  overflow: auto;
+  background: var(--card-bg);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--card-shadow);
+  margin-bottom: 1.5rem;
+}
+
+.gantt-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.78rem;
+}
+
+.gantt-table th,
+.gantt-table td {
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.gantt-description-cell,
+.gantt-frozen-col:nth-child(3) {
+  text-align: left;
+  white-space: normal;
+}
+
+.gantt-frozen-col {
+  position: sticky;
+  background: var(--card-bg);
+  text-align: left;
+  z-index: 2;
+}
+
+.gantt-frozen-header {
+  top: 0;
+  z-index: 4;
+  background: var(--page-bg);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+.gantt-frozen-cell {
+  font-size: 0.76rem;
+}
+
+.gantt-week-header,
+.gantt-day-cell {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--page-bg);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+thead .gantt-day-cell {
+  top: 1.9rem;
+}
+
+.gantt-day-header-dow {
+  font-weight: 700;
+}
+
+.gantt-day-header-date {
+  font-weight: 400;
+}
+
+.gantt-day-header-holiday {
+  font-size: 0.6rem;
+  color: var(--warning);
+  white-space: normal;
+}
+
+.gantt-weekend {
+  background: var(--rgba-neutral-1);
+}
+
+.gantt-holiday {
+  background: var(--rgba-warning-1);
+}
+
+.gantt-totals-row td {
+  font-weight: 700;
+  background: var(--rgba-primary-1);
+}
+
+.gantt-totals-row .gantt-frozen-cell {
+  background: var(--rgba-primary-1);
+}
+
+.gantt-total-cell {
+  color: var(--primary);
+}
+
+.gantt-section-row td {
+  text-align: left;
+  font-weight: 700;
+  background: var(--page-bg);
+  color: var(--title);
+  padding: 0.35rem 0.6rem;
+  position: sticky;
+  left: 0;
+}
+
+.gantt-cell {
+  cursor: pointer;
+  min-width: 2.1rem;
+}
+
+.gantt-cell:hover {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.gantt-cell.gantt-scheduled {
+  background: var(--rgba-primary-2);
+}
+
+.gantt-cell.gantt-scheduled.gantt-flag-critical {
+  background: var(--rgba-danger-2);
+}
+
+.gantt-cell.gantt-scheduled.gantt-flag-shutdown {
+  background: var(--rgba-secondary-2);
+}
+
+.gantt-cell.gantt-scheduled.gantt-flag-night {
+  background: var(--rgba-info-2);
+}
+
+.gantt-cell-content {
+  font-weight: 600;
+  color: var(--title);
+}
+
+.gantt-day-panel {
+  width: min(360px, 100%);
+}
+
+@media print {
+  .gantt-scroll {
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+  }
+
+  .gantt-frozen-header,
+  .gantt-week-header,
+  .gantt-day-cell {
+    position: static;
+  }
+
+  .gantt-frozen-col {
+    position: static;
+  }
+
+  .gantt-table {
+    font-size: 0.6rem;
+  }
+}
