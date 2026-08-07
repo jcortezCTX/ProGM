@@ -48,6 +48,10 @@ export function Layout() {
             Schedule
           </NavLink>
 
+          <NavLink to="/sites" className={({ isActive }) => (isActive ? "active" : "")}>
+            Asset Tracking
+          </NavLink>
+
           <details className="sidebar-group" open>
             <summary className="sidebar-group-toggle">
               Project Logs

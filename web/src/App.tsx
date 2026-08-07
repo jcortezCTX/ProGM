@@ -23,6 +23,9 @@ import { ScheduleActivityDetailPage } from "./pages/ScheduleActivityDetailPage";
 import { ScheduleGanttPage } from "./pages/ScheduleGanttPage";
 import { ScheduleSettingsPage } from "./pages/ScheduleSettingsPage";
 import { TasksListPage } from "./pages/TasksListPage";
+import { SitesListPage } from "./pages/SitesListPage";
+import { SiteMapPage } from "./pages/SiteMapPage";
+import { AssetTypesPage } from "./pages/AssetTypesPage";
 import { LoginPage } from "./pages/LoginPage";
 import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { RequireAuth, RequireRole } from "./auth/RequireAuth";
@@ -59,6 +62,9 @@ function App() {
           <Route path="/schedule/settings" element={<ScheduleSettingsPage />} />
           <Route path="/tasks" element={<TasksListPage />} />
           <Route path="/tasks/:id" element={<TasksListPage />} />
+          <Route path="/sites" element={<SitesListPage />} />
+          <Route path="/sites/:siteId" element={<SiteMapPage />} />
+          <Route path="/asset-types" element={<AssetTypesPage />} />
           <Route element={<RequireRole role="admin" />}>
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>

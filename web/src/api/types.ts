@@ -381,7 +381,7 @@ export interface AddRevisionInput {
 // Polymorphic - one table for every entity type (see db/schema.sql).
 // storage_key/graph_drive_id/graph_item_id are backend-storage internals,
 // never used directly by the frontend (use attachmentFileUrl() instead).
-export type AttachmentEntityType = "inventory_item" | "delivery" | "drawing_revision" | "log_entry";
+export type AttachmentEntityType = "inventory_item" | "delivery" | "drawing_revision" | "log_entry" | "asset";
 
 export interface Attachment {
   id: string;
@@ -715,6 +715,232 @@ export interface UpdateTaskInput {
   project?: string | null;
   category?: string | null;
   assignee_ids?: string[];
+}
+
+// ── Asset Tracking ──────────────────────────────────────────────────────
+
+export interface Site {
+  id: string;
+  name: string;
+  code: string | null;
+  description: string | null;
+  default_zoom: number | null;
+  timezone: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSiteInput {
+  name: string;
+  code?: string;
+  description?: string;
+  timezone?: string;
+  default_zoom?: number;
+}
+
+export type AssetGeomType = "Point" | "LineString" | "Polygon" | "MultiPolygon" | "MultiLineString";
+
+// Decimal columns (Prisma.Decimal) serialize as strings over JSON, not
+// numbers - every one of these fields needs Number(...) before arithmetic
+// or passing to a map library.
+export interface AssetType {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+  parent_type_id: string | null;
+  allowed_geom_types: AssetGeomType[];
+  attribute_schema: Record<string, unknown>;
+  ui_schema: Record<string, unknown> | null;
+  default_useful_life_years: number | null;
+  icon: string | null;
+  color: string | null;
+  schema_version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAssetTypeInput {
+  code: string;
+  name: string;
+  category?: string;
+  parent_type_id?: string;
+  allowed_geom_types: AssetGeomType[];
+  attribute_schema?: Record<string, unknown>;
+  ui_schema?: Record<string, unknown>;
+  default_useful_life_years?: number;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateAssetTypeInput {
+  name?: string;
+  category?: string | null;
+  parent_type_id?: string | null;
+  allowed_geom_types?: AssetGeomType[];
+  attribute_schema?: Record<string, unknown>;
+  ui_schema?: Record<string, unknown> | null;
+  default_useful_life_years?: number | null;
+  icon?: string | null;
+  color?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateAssetTypeResult {
+  asset_type: AssetType;
+  schema_changed: boolean;
+  would_invalidate_count: number;
+}
+
+export type GeoJsonGeometry =
+  | { type: "Point"; coordinates: [number, number] }
+  | { type: "LineString"; coordinates: [number, number][] }
+  | { type: "Polygon"; coordinates: [number, number][][] }
+  | { type: "MultiPolygon"; coordinates: [number, number][][][] }
+  | { type: "MultiLineString"; coordinates: [number, number][][] };
+
+export type AssetStatus =
+  | "planned"
+  | "under_construction"
+  | "active"
+  | "inactive"
+  | "out_of_service"
+  | "abandoned_in_place"
+  | "removed";
+
+export type AssetSource = "field_gps" | "as_built" | "digitized" | "import";
+
+export interface AssetSummary {
+  id: string;
+  tag: string;
+  name: string;
+  status: AssetStatus;
+}
+
+export interface Asset {
+  id: string;
+  site_id: string;
+  asset_type_id: string;
+  parent_id: string | null;
+  tag: string;
+  name: string;
+  description: string | null;
+  geom_type: AssetGeomType | null;
+  centroid_lat: string | null;
+  centroid_lon: string | null;
+  elevation_ft: string | null;
+  depth_below_grade_ft: string | null;
+  floor_level: string | null;
+  layout_id: string | null;
+  status: AssetStatus;
+  condition_rating: number | null;
+  condition_assessed_on: string | null;
+  criticality: number | null;
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  install_date: string | null;
+  in_service_date: string | null;
+  expected_life_years: number | null;
+  replacement_cost: string | null;
+  acquisition_cost: string | null;
+  owner_dept: string | null;
+  attributes: Record<string, unknown>;
+  source: AssetSource | null;
+  accuracy_ft: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  geom: GeoJsonGeometry | null;
+  asset_type: { id: string; code: string; name: string };
+}
+
+export interface AssetDetail extends Asset {
+  parent: AssetSummary | null;
+  children: AssetSummary[];
+  attachments: Attachment[];
+}
+
+export interface AssetFeatureCollection {
+  type: "FeatureCollection";
+  features: { type: "Feature"; geometry: GeoJsonGeometry | null; properties: Asset }[];
+}
+
+export interface CreateAssetInput {
+  asset_type_id: string;
+  parent_id?: string;
+  tag: string;
+  name: string;
+  description?: string;
+  geometry?: GeoJsonGeometry;
+  elevation_ft?: number;
+  depth_below_grade_ft?: number;
+  floor_level?: string;
+  layout_id?: string;
+  status?: AssetStatus;
+  condition_rating?: number;
+  condition_assessed_on?: string;
+  criticality?: number;
+  manufacturer?: string;
+  model?: string;
+  serial_number?: string;
+  install_date?: string;
+  in_service_date?: string;
+  expected_life_years?: number;
+  replacement_cost?: number;
+  acquisition_cost?: number;
+  owner_dept?: string;
+  attributes?: Record<string, unknown>;
+  source?: AssetSource;
+  accuracy_ft?: number;
+}
+
+// All fields optional/nullable - PATCH semantics. No `geometry` field: the
+// backend's dedicated POST /assets/:id/geometry endpoint owns geometry
+// edits so they don't round-trip the whole record (spec 5.1).
+export interface UpdateAssetInput {
+  asset_type_id?: string;
+  parent_id?: string | null;
+  tag?: string;
+  name?: string;
+  description?: string | null;
+  elevation_ft?: number | null;
+  depth_below_grade_ft?: number | null;
+  floor_level?: string | null;
+  layout_id?: string | null;
+  status?: AssetStatus;
+  condition_rating?: number | null;
+  condition_assessed_on?: string | null;
+  criticality?: number | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  install_date?: string | null;
+  in_service_date?: string | null;
+  expected_life_years?: number | null;
+  replacement_cost?: number | null;
+  acquisition_cost?: number | null;
+  owner_dept?: string | null;
+  attributes?: Record<string, unknown>;
+  source?: AssetSource | null;
+  accuracy_ft?: number | null;
+}
+
+export interface AssetsListParams {
+  type?: string;
+  status?: AssetStatus;
+  criticality?: number;
+  parent_id?: string;
+  bbox?: string;
+}
+
+export interface BulkCreateAssetsResult {
+  created: number;
+  errors: { index: number; error: string; fields?: { path: string; message: string }[] }[];
 }
 
 // ---- Schedule (6 Week Lookahead) ----
