@@ -89,11 +89,24 @@ export interface DerivedFields {
   delta: string | null;
 }
 
-function computeDerived(row: ActivityRow, overrides: DayRow[], holidays: ReadonlySet<string>): DerivedFields {
+/**
+ * Derived fields plus the resolved working days they came from. The day set
+ * stays internal — it is what `scheduled_between` has to filter on, but it is
+ * not part of any response shape.
+ */
+function computeDerivedWithDays(
+  row: ActivityRow,
+  overrides: DayRow[],
+  holidays: ReadonlySet<string>,
+): { derived: DerivedFields; resolved: string[] } {
   const resolved = resolveDaySet(toWindow(row), holidays, overridesToDayRows(overrides));
   const { first, last } = firstLastDay(resolved);
   const delta = row.budget_mh !== null && row.burned_mh !== null ? row.budget_mh.minus(row.burned_mh).toString() : null;
-  return { first_day: first, last_day: last, days: resolved.length, delta };
+  return { derived: { first_day: first, last_day: last, days: resolved.length, delta }, resolved };
+}
+
+function computeDerived(row: ActivityRow, overrides: DayRow[], holidays: ReadonlySet<string>): DerivedFields {
+  return computeDerivedWithDays(row, overrides, holidays).derived;
 }
 
 function toDecimalInput(v: string | number | null | undefined) {
@@ -140,20 +153,23 @@ export async function listActivities(filters: ActivitiesListFilters) {
   const holidays = await listHolidaySet();
   const overridesByActivity = await loadOverridesByActivity(rows.map((r) => r.id));
 
-  let results = rows.map((row) => ({
-    ...row,
-    ...computeDerived(row, overridesByActivity.get(row.id) ?? [], holidays),
-  }));
+  const resolvedRows = rows.map((row) => {
+    const { derived, resolved } = computeDerivedWithDays(row, overridesByActivity.get(row.id) ?? [], holidays);
+    return { activity: { ...row, ...derived }, resolved };
+  });
 
-  if (filters.scheduled_between) {
-    const { from, to } = filters.scheduled_between;
-    results = results.filter((row) => {
-      if (!row.first_day || !row.last_day) return false;
-      return row.first_day <= to && row.last_day >= from;
-    });
-  }
+  const between = filters.scheduled_between;
+  const matching = between
+    ? // Intersect the *resolved working days*, not first_day..last_day. An
+      // activity's span routinely contains stretches it does not work (the
+      // Excel's hand-painted gaps import as `exclude` overrides), so comparing
+      // endpoints reports activities as scheduled in a window where they have
+      // no working days at all — wrong for exactly the "what's on this week"
+      // question this filter exists to answer.
+      resolvedRows.filter(({ resolved }) => resolved.some((day) => day >= between.from && day <= between.to))
+    : resolvedRows;
 
-  return results;
+  return matching.map(({ activity }) => activity);
 }
 
 async function loadOverridesByActivity(activityIds: string[]): Promise<Map<string, DayRow[]>> {
