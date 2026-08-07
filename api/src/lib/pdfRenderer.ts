@@ -1,10 +1,11 @@
 import puppeteer, { type Browser, type PaperFormat, type Page } from "puppeteer";
 
-// Headless-Chromium PDF rendering. Used by sheets whose value is that they
-// look exactly like the on-screen view — the 6 Week Lookahead is a 47-column
-// colored grid, which is far cheaper to express as HTML+CSS than as pdfkit
-// coordinate math. Simple text reports (see `weeklyReportPdf.ts`) stay on
-// pdfkit and must not be moved here; launching Chromium is not free.
+// Headless-Chromium PDF rendering. This is the single PDF pipeline for the
+// app: every sheet is authored as HTML+CSS and printed here, so they share one
+// set of brand tokens, one page-chrome module and one renderer. pdfkit was
+// removed when the Concrete weekly report moved over — do not reintroduce a
+// second pipeline for a "simple" report; the layout always grows, and a
+// second one means brand styling drifts between them.
 //
 // One browser is launched lazily and reused for every render. Launching per
 // request costs ~1s of process startup and a fresh ~100MB allocation each

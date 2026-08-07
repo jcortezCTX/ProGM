@@ -3,7 +3,6 @@ import {
   type LookaheadActivity,
   type LookaheadDay,
   type LookaheadSheetData,
-  buildLookaheadFooterTemplate,
   buildLookaheadHtml,
 } from "./scheduleLookaheadHtml.js";
 
@@ -166,11 +165,3 @@ describe("buildLookaheadHtml", () => {
   });
 });
 
-describe("buildLookaheadFooterTemplate", () => {
-  it("includes the generation timestamp and Chromium's page-number spans", () => {
-    const footer = buildLookaheadFooterTemplate({ generatedAt: new Date("2026-08-07T15:04:00Z") });
-    expect(footer).toContain("Generated");
-    expect(footer).toContain('class="pageNumber"');
-    expect(footer).toContain('class="totalPages"');
-  });
-});

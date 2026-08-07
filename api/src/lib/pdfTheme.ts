@@ -16,11 +16,14 @@ export const PDF_THEME_TOKENS = `
   --rgba-primary-1: rgba(0, 161, 93, 0.1);
   --rgba-primary-2: rgba(0, 161, 93, 0.2);
 
+  --success: #09BD3C;
   --info: #D653C1;
   --warning: #FFCF6D;
   --danger: #FC2E53;
   --secondary: #FF5E4B;
 
+  --rgba-success-1: rgba(9, 189, 60, 0.14);
+  --rgba-danger-1: rgba(252, 46, 83, 0.12);
   --rgba-danger-2: rgba(252, 46, 83, 0.35);
   --rgba-info-2: rgba(214, 83, 193, 0.3);
   --rgba-secondary-2: rgba(255, 94, 75, 0.35);
