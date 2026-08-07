@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
+import { closePdfRenderer } from "./lib/pdfRenderer.js";
 import { requireAuth } from "./middleware/auth.js";
 import { assetTypesRouter } from "./routes/assetTypes.js";
 import { assetsRouter, siteAssetsRouter } from "./routes/assets.js";
@@ -28,7 +29,11 @@ import { tasksRouter } from "./routes/tasks.js";
 import { usersRouter } from "./routes/users.js";
 
 const app = express();
-app.use(cors());
+// Content-Disposition must be opted into: browsers hide every non-simple
+// response header from cross-origin JS, so without this the web app cannot
+// read the server's filename off a PDF/export download and falls back to a
+// generic one.
+app.use(cors({ exposedHeaders: ["Content-Disposition"] }));
 app.use(express.json());
 
 app.use("/api", healthRouter);
@@ -78,6 +83,17 @@ const jsonErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
 app.use(jsonErrorHandler);
 
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`api listening on port ${port}`);
 });
+
+// The PDF renderer keeps a Chromium process alive between exports; without
+// this it survives the API and leaks on every restart (tsx watch reloads
+// especially).
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    server.close(() => {
+      void closePdfRenderer().finally(() => process.exit(0));
+    });
+  });
+}

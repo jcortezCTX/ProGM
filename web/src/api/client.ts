@@ -34,6 +34,46 @@ export function buildQueryString(params: object): string {
   return qs ? `?${qs}` : "";
 }
 
+// File downloads cannot be a plain <a href> because every API route behind
+// requireAuth needs the bearer header, so the response is pulled as a blob and
+// handed to the browser via an object URL. Shares apiFetch's 401 handling and
+// { error: string } body contract.
+export async function apiDownload(path: string): Promise<{ blob: Blob; filename: string | null }> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+
+  if (res.status === 401 && token) {
+    clearToken();
+    window.dispatchEvent(new Event("auth:unauthorized"));
+  }
+
+  if (!res.ok) {
+    // A failed download still returns the API's JSON error body, not a file.
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new ApiError(res.status, body.error ?? res.statusText, body.fields);
+  }
+
+  const disposition = res.headers.get("Content-Disposition");
+  const match = disposition?.match(/filename="([^"]+)"/);
+  return { blob: await res.blob(), filename: match ? match[1] : null };
+}
+
+/** Triggers a browser download for an already-fetched blob. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoking immediately can cancel the download in some browsers; one tick
+  // is enough for the click to have been handed off.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
